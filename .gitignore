@@ -1,25 +1,25 @@
 # Environment
-  .env
-  .env.local
-  
-  # Dependencies
-  node_modules/
-  
-  # Foundry
-  contracts/out/
-  contracts/cache/
-  contracts/broadcast/
-  
-  # Next.js
-  .next/
-  
-  # IDE
-  .vscode/
-  .idea/
-  
-  # OS
-  .DS_Store
-  
-  # Build
-  dist/
-  build/
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Next.js
+.next/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Build
+dist/
+build/
