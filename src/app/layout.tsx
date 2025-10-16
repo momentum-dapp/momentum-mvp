@@ -3,6 +3,9 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Web3Provider } from '@/components/Web3Provider'
+import Navigation from '@/components/nav'
+import AnimatedBackground from '@/components/background/animated-background'
+import Footer from '@/components/footer'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -28,7 +31,10 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           <Web3Provider>
+            {/* <Navigation /> */}
+            <AnimatedBackground />
             {children}
+            <Footer />
           </Web3Provider>
         </body>
       </html>

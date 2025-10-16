@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { 
+import {
   PaperAirplaneIcon,
   SparklesIcon,
   UserIcon,
@@ -141,7 +141,7 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
       });
 
       const data = await response.json();
-      
+
       if (data.response) {
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -153,8 +153,8 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
         setMessages(prev => [...prev, assistantMessage]);
 
         // Check if we should show strategy selection
-        if (data.response.toLowerCase().includes('strategy') && 
-            data.response.toLowerCase().includes('recommend')) {
+        if (data.response.toLowerCase().includes('strategy') &&
+          data.response.toLowerCase().includes('recommend')) {
           setTimeout(() => setShowStrategies(true), 1000);
         }
       }
@@ -185,9 +185,9 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
 
   const handleConfirmStrategy = async () => {
     if (!selectedStrategy) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       // Execute the strategy immediately
       const response = await fetch('/api/execute-strategy', {
@@ -199,7 +199,7 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         const successMessage: ChatMessage = {
           id: Date.now().toString(),
@@ -210,7 +210,7 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
 
         setMessages(prev => [...prev, successMessage]);
         setShowStrategies(false);
-        
+
         // Call the callback to update parent component if provided
         if (onStrategySelected) {
           onStrategySelected(selectedStrategy);
@@ -233,7 +233,7 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mt-20 max-w-4xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm h-[700px] flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
@@ -257,9 +257,8 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
             >
               <div className={`flex max-w-xs lg:max-w-md ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div className={`flex-shrink-0 ${message.role === 'user' ? 'ml-2' : 'mr-2'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    message.role === 'user' ? 'bg-indigo-600' : 'bg-gray-100'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${message.role === 'user' ? 'bg-indigo-600' : 'bg-gray-100'
+                    }`}>
                     {message.role === 'user' ? (
                       <UserIcon className="h-4 w-4 text-white" />
                     ) : (
@@ -267,16 +266,14 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
                     )}
                   </div>
                 </div>
-                
-                <div className={`px-4 py-2 rounded-lg ${
-                  message.role === 'user'
+
+                <div className={`px-4 py-2 rounded-lg ${message.role === 'user'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-gray-100 text-gray-900'
-                }`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.role === 'user' ? 'text-indigo-200' : 'text-gray-500'
                   }`}>
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-indigo-200' : 'text-gray-500'
+                    }`}>
                     {message.timestamp.toLocaleTimeString()}
                   </p>
                 </div>
@@ -292,16 +289,15 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
                   Based on our conversation, here are three investment strategies I recommend:
                 </p>
               </div>
-              
+
               <div className="grid gap-4">
                 {strategies.map((strategy) => (
                   <div
                     key={strategy.id}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      selectedStrategy?.id === strategy.id
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${selectedStrategy?.id === strategy.id
                         ? `${strategy.color} ${strategy.bgColor}`
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                     onClick={() => handleStrategySelect(strategy)}
                   >
                     <div className="flex items-start justify-between">
@@ -321,7 +317,7 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
                           Expected Return: {strategy.expectedReturn}
                         </p>
                         <div className="text-xs text-gray-500">
-                          Allocation: WBTC {strategy.allocation.WBTC}% • Major Caps {strategy.allocation.BIG_CAPS}% • 
+                          Allocation: WBTC {strategy.allocation.WBTC}% • Major Caps {strategy.allocation.BIG_CAPS}% •
                           Emerging {strategy.allocation.MID_LOWER_CAPS}% • Stablecoins {strategy.allocation.STABLECOINS}%
                         </div>
                       </div>
@@ -360,7 +356,7 @@ export default function AIAdvisor({ onStrategySelected }: AIAdvisorProps) {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
