@@ -1,102 +1,158 @@
-import { redirect } from 'next/navigation';
-import { currentUser } from '@clerk/nextjs/server';
+"use client";
+import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import Link from 'next/link'
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import { motion } from "framer-motion"
+import { ScrollProgress } from '@/components/home/scroll-progress'
+import { ArrowRight } from "lucide-react"
+import AnimatedGradient from '@/components/home/animated-gradien'
+import DashboardPreview from '@/components/home/dashboard-preview'
+import LogoCloud from '@/components/home/logo-cloud'
+import Stats2 from '@/components/home/stats2'
+import Features2 from '@/components/home/features2'
+import HowItWorks from '@/components/home/how-it-works'
+import FAQ from '@/components/home/faq'
+import CtaSection from '@/components/home/cta-section'
 
-export default async function Home() {
-  let user = null;
-  
-  try {
-    user = await currentUser();
-  } catch (error) {
-    console.error('Clerk authentication error:', error);
-    // If Clerk is not properly configured, continue without authentication
+export default function Home() {
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Wait for Clerk to load
+    if (isLoaded && user) {
+      router.push('/dashboard');
+    }
+  }, [user, isLoaded, router]);
+
+  // Show loading state while checking authentication
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      </div>
+    );
   }
 
-  // If user is authenticated, redirect to dashboard
+  // Don't render content if user is authenticated (will redirect)
   if (user) {
-    redirect('/dashboard');
+    return null;
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <nav className="flex justify-between items-center p-6">
-        <div className="text-2xl font-bold text-indigo-600">Momentum</div>
-        <div>
-          <SignedOut>
-            <SignInButton>
-              <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
-                Sign In
-              </button>
-            </SignInButton>
-          </SignedOut>
-          <SignedIn>
-            <UserButton />
-          </SignedIn>
-        </div>
-      </nav>
+    <>
+      {/* <Navigation /> */}
+      <ScrollProgress />
+      <main className="relative min-h-screen flex items-center justify-center px-6">
+        <section className="w-full">
+          <div className="mt-20 max-w-7xl mx-auto flex flex-col items-center justify-center text-center">
+            {/* Main Content */}
+            <div className="mt-20 text-center flex flex-col items-center justify-center max-w-4xl">
+              {/* New Badge */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="inline-flex items-center space-x-2 mb-8"
+              >
+                <AnimatedGradient />
+              </motion.div>
 
-      <div className="container mx-auto px-6 py-16">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            AI-Powered Portfolio Management
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Leverage AI-driven automatic rebalancing on Base blockchain. 
-            Secure, intelligent, and optimized for your investment strategy.
-          </p>
-          
-          <div className="space-y-4 sm:space-y-0 sm:space-x-4 sm:flex sm:justify-center">
-            <SignedOut>
-              <SignInButton>
-                <button className="w-full sm:w-auto bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-colors">
-                  Get Started
-                </button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <Link href="/dashboard" className="w-full sm:w-auto bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-colors inline-block">
-                Go to Dashboard
+              {/* Main Heading */}
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-5xl lg:text-7xl font-bold leading-tight mb-6"
+              >
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.5 }}
+                  className="block"
+                >
+                  AI-Powered
+                </motion.span>
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.7 }}
+                  className="block bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+                >
+                  for Auto-Rebalancing Portofolio.
+                </motion.span>
+              </motion.h1>
+
+              {/* Subtitle */}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.9 }}
+                className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto"
+              >
+                Leverage AI-driven automatic rebalancing on Base blockchain.
+                Secure, intelligent, and optimized for your investment strategy.
+              </motion.p>
+
+              {/* CTA Button */}
+              <Link href="/dashboard" className="flex justify-center">
+                <motion.button
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 1.1 }}
+                  whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(147, 51, 234, 0.3)" }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-purple-600 hover:bg-purple-700 px-8 py-4 rounded-full text-white font-semibold text-lg transition-all duration-300 flex items-center justify-center"
+                >
+                  Launch App
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </motion.button>
               </Link>
-            </SignedIn>
-            <button className="w-full sm:w-auto border border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-indigo-50 transition-colors">
-              Learn More
-            </button>
-          </div>
-        </div>
 
-        <div className="mt-20 grid md:grid-cols-3 gap-8">
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+              {/* Earn Effortlessly Text
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6, delay: 1.3 }}
+                        className="absolute bottom-8 left-8 hidden lg:block"
+                    >
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            <span className="text-gray-400 text-sm">Earn Effortlessly</span>
+                        </div>
+                    </motion.div> */}
             </div>
-            <h3 className="text-xl font-semibold mb-2">Secure Vaults</h3>
-            <p className="text-gray-600">Your funds are protected by battle-tested smart contracts on Base blockchain.</p>
-          </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold mb-2">AI-Driven</h3>
-            <p className="text-gray-600">Advanced AI algorithms optimize your portfolio based on market conditions.</p>
-          </div>
+            {/* Right Content - Dashboard Preview
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="relative"
+            >
 
-          <div className="bg-white p-6 rounded-xl shadow-sm">
-            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Auto-Rebalancing</h3>
-            <p className="text-gray-600">Automatic portfolio rebalancing ensures optimal asset allocation at all times.</p>
+              <Link href={"/dashboard"} className="block">
+                <DashboardPreview />
+              </Link>
+            </motion.div> */}
           </div>
-        </div>
-      </div>
-    </main>
-  )
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.8 }}
+            className="flex justify-center mt-16"
+          >
+            <LogoCloud />
+          </motion.div>
+
+          <Stats2 />
+          <Features2 />
+          <HowItWorks />
+          <FAQ />
+          {/* <CtaSection /> */}
+        </section >
+      </main >
+    </>
+  );
 }
