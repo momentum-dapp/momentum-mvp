@@ -153,7 +153,7 @@ export default function DashboardClient() {
           // Portfolio creation flow
           <div className="text-center">
             <div className="max-w-md mx-auto">
-              <div className="bg-white rounded-lg shadow-sm p-8">
+              <div className="bg-blue-100 rounded-lg shadow-sm p-10">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ChartBarIcon className="h-8 w-8 text-green-600" />
                 </div>

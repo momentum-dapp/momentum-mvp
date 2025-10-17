@@ -6,6 +6,7 @@ import { Web3Provider } from '@/components/Web3Provider'
 import ConditionalNavigation from '@/components/ConditionalNavigation'
 import AnimatedBackground from '@/components/background/animated-background'
 import Footer from '@/components/footer'
+import Navigation from '@/components/nav'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -31,9 +32,9 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           <Web3Provider>
-            <ConditionalNavigation />
+            <Navigation />
             <AnimatedBackground />
-            {children}
+            {children}  
             <Footer />
           </Web3Provider>
         </body>

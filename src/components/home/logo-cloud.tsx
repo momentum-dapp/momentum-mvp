@@ -16,47 +16,47 @@ export default function LogoCloud() {
                             gap={112}>
                             <div className="flex">
                                 <img
-                                    className="mx-auto h-5 w-fit dark:invert"
-                                    src="https://internetcomputer.org/img/IC_logo_horizontal.svg"
-                                    alt="ICP logo"
-                                    height="20"
+                                    className="mx-auto h-5 w-fit"
+                                    src="./84532.svg"
+                                    alt="Base Logo"
+                                    height="24"
                                     width="auto"
                                 />
                             </div>
 
                             <div className="flex">
                                 <img
-                                    className="mx-auto h-4 w-fit dark:invert"
-                                    src="https://html.tailus.io/blocks/customers/github.svg"
+                                    className="mx-auto h-4 w-fit "
+                                    src="./84532.svg"
                                     alt="GitHub Logo"
-                                    height="16"
+                                    height="24"
                                     width="auto"
                                 />
                             </div>
 
                             <div className="flex">
                                 <img
-                                    className="mx-auto h-6 w-fit dark:invert"
-                                    src="https://html.tailus.io/blocks/customers/openai.svg"
-                                    alt="OpenAI Logo"
+                                    className="mx-auto h-6 w-fit"
+                                    src="./84532.svg"
+                                    alt="Base Logo"
                                     height="24"
                                     width="auto"
                                 />
                             </div>
                             <div className="flex">
                                 <img
-                                    className="mx-auto h-6 w-fit dark:invert"
-                                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTZ2Gwypb7WQkwGQZ3-pBJQc6eVbEZ8HZmWug&s"
-                                    alt=" Eliza OS Logo"
+                                    className="mx-auto h-6 w-fit"
+                                    src="./84532.svg"
+                                    alt=" Base Logo"
                                     height="24"
                                     width="auto"
                                 />
                             </div>
                             <div className="flex">
                                 <img
-                                    className="mx-auto h-6 w-fit dark:invert"
-                                    src="https://cdn.worldvectorlogo.com/logos/bitcoin-logo.svg"
-                                    alt="Bitcoin Logo"
+                                    className="mx-auto h-6 w-fit"
+                                    src="./84532.svg"
+                                    alt="Base Logo"
                                     height="24"
                                     width="auto"
                                 />

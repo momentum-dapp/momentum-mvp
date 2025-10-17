@@ -135,7 +135,7 @@ export default function Home() {
           <Features2 />
           <HowItWorks />
           <FAQ />
-          <CtaSection />
+          {/* <CtaSection /> */}
         </section >
       </main >
     </>
