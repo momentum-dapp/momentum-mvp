@@ -1,7 +1,5 @@
 "use client";
 import { useUser } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import Link from 'next/link'
 import { motion } from "framer-motion"
 import { ScrollProgress } from '@/components/home/scroll-progress'
@@ -17,14 +15,6 @@ import CtaSection from '@/components/home/cta-section'
 
 export default function Home() {
   const { user, isLoaded } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    // Wait for Clerk to load
-    if (isLoaded && user) {
-      router.push('/dashboard');
-    }
-  }, [user, isLoaded, router]);
 
   // Show loading state while checking authentication
   if (!isLoaded) {
@@ -33,11 +23,6 @@ export default function Home() {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
       </div>
     );
-  }
-
-  // Don't render content if user is authenticated (will redirect)
-  if (user) {
-    return null;
   }
 
   return (
@@ -96,7 +81,7 @@ export default function Home() {
               </motion.p>
 
               {/* CTA Button */}
-              <Link href="/dashboard" className="flex justify-center">
+              <Link href="/sign-in" className="flex justify-center">
                 <motion.button
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
