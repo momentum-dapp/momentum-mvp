@@ -31,9 +31,9 @@ export default function Home() {
       <ScrollProgress />
       <main className="relative min-h-screen flex items-center justify-center px-6">
         <section className="w-full">
-          <div className="mt-20 max-w-7xl mx-auto flex flex-col items-center justify-center text-center">
+          <div className="mt-16 max-w-7xl mx-auto flex flex-col items-center justify-center text-center">
             {/* Main Content */}
-            <div className="mt-20 text-center flex flex-col items-center justify-center max-w-4xl">
+            <div className="mt-16 text-center flex flex-col items-center justify-center max-w-4xl">
               {/* New Badge */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -126,7 +126,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.8 }}
-            className="flex justify-center mt-16"
+            className="flex justify-center mt-12"
           >
             <LogoCloud />
           </motion.div>

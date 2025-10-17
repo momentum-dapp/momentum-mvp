@@ -8,12 +8,12 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   WalletIcon,
-  ClockIcon,
-  EyeIcon,
-  CogIcon
+  ClockIcon
 } from '@heroicons/react/24/outline';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import PerformanceChart from '@/components/PerformanceChart';
+import WalletDisplay from '@/components/WalletDisplay';
+import EmergencyRebalance from '@/components/EmergencyRebalance';
 import Link from 'next/link';
 
 interface Portfolio {
@@ -192,9 +192,9 @@ export default function PortfolioClient() {
     
     setIsRebalancing(true);
     try {
-      // Try to trigger rebalancing via API
-      const response = await fetch('/api/portfolio', {
-        method: 'PUT',
+      // Execute rebalancing via smart contract
+      const response = await fetch('/api/execute-strategy', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -203,9 +203,10 @@ export default function PortfolioClient() {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.portfolio) {
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        if (data.portfolio) {
           // Update portfolio with new data from API
           setPortfolio({
             id: data.portfolio.id,
@@ -215,21 +216,23 @@ export default function PortfolioClient() {
             lastRebalanced: data.portfolio.lastRebalanced,
             isActive: portfolio.isActive,
           });
+        } else {
+          // Update timestamp if no portfolio data returned
+          setPortfolio({
+            ...portfolio,
+            lastRebalanced: new Date().toISOString(),
+          });
         }
+        
+        // Show success message with transaction hash
+        console.log(`Rebalancing completed. Transaction: ${data.transactionHash}`);
       } else {
-        // Fallback: just update the timestamp locally
-        setPortfolio({
-          ...portfolio,
-          lastRebalanced: new Date().toISOString(),
-        });
+        throw new Error(data.error || 'Rebalancing failed');
       }
     } catch (error) {
       console.error('Rebalancing failed:', error);
-      // Fallback: just update the timestamp locally
-      setPortfolio({
-        ...portfolio,
-        lastRebalanced: new Date().toISOString(),
-      });
+      // Show error to user
+      alert(`Rebalancing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsRebalancing(false);
     }
@@ -299,20 +302,6 @@ export default function PortfolioClient() {
               </p>
             </div>
             <div className="flex space-x-3">
-              <Link
-                href="/ai-advisor"
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors"
-              >
-                <CogIcon className="h-4 w-4 mr-2" />
-                AI Advisor
-              </Link>
-              <Link
-                href="/portfolio/transactions"
-                className="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-              >
-                <EyeIcon className="h-4 w-4 mr-2" />
-                View Transactions
-              </Link>
               <button
                 onClick={handleRebalance}
                 disabled={isRebalancing}
@@ -384,12 +373,15 @@ export default function PortfolioClient() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Wallet Display */}
+            <WalletDisplay />
+
             {/* Wallet Balance */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
               <div className="flex items-center mb-4">
                 <WalletIcon className="h-8 w-8 mr-3" />
                 <div>
-                  <h2 className="text-lg font-semibold">Wallet Balance</h2>
+                  <h2 className="text-lg font-semibold">Portfolio Value</h2>
                   <p className="text-indigo-100 text-sm">
                     Last updated {lastUpdate.toLocaleTimeString()}
                   </p>
@@ -397,7 +389,7 @@ export default function PortfolioClient() {
               </div>
               <div className="text-right">
                 <p className="text-3xl font-bold">
-                  {walletBalance ? formatCurrency(walletBalance) : 'Loading...'}
+                  {walletBalance !== null ? formatCurrency(walletBalance) : formatCurrency(0)}
                 </p>
                 <p className="text-indigo-100 text-sm">Total Assets</p>
               </div>
@@ -414,7 +406,7 @@ export default function PortfolioClient() {
                     Last rebalanced {new Date(portfolio.lastRebalanced).toLocaleDateString()}
                   </p>
                 </div>
-                <CogIcon className="h-6 w-6 text-gray-300" />
+                <ChartPieIcon className="h-6 w-6 text-gray-300" />
               </div>
 
               <div className="space-y-4">
@@ -466,6 +458,9 @@ export default function PortfolioClient() {
                 </div>
               </div>
             </div>
+
+            {/* Emergency Rebalance */}
+            <EmergencyRebalance onRebalanceComplete={fetchPortfolioData} />
           </div>
         </div>
       </div>

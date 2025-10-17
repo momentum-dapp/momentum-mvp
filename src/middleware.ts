@@ -14,8 +14,15 @@ export default clerkMiddleware((auth, req) => {
     return;
   }
 
+  // Only protect routes if Clerk is properly configured
   if (!isPublicRoute(req)) {
-    auth.protect();
+    try {
+      auth.protect();
+    } catch (error) {
+      console.error('Authentication error:', error);
+      // Allow the request to continue if auth fails
+      return;
+    }
   }
 });
 

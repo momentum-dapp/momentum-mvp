@@ -3,7 +3,6 @@ import { currentUser } from '@clerk/nextjs/server';
 import { UserService } from '@/lib/services/user-service';
 import { PortfolioService } from '@/lib/services/portfolio-service';
 import { SmartContractService } from '@/lib/contracts/smart-contract-service';
-import { STRATEGIES } from '@/lib/contracts/addresses';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,12 +10,6 @@ export async function POST(request: NextRequest) {
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { strategy } = await request.json();
-
-    if (!strategy || !['low', 'medium', 'high'].includes(strategy)) {
-      return NextResponse.json({ error: 'Invalid strategy' }, { status: 400 });
     }
 
     // Get user from database
@@ -30,33 +23,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User wallet not found' }, { status: 404 });
     }
 
-    // Get or create portfolio
-    let portfolio = await PortfolioService.getUserPortfolio(dbUser.id);
-    
+    // Get user's portfolio
+    const portfolio = await PortfolioService.getUserPortfolio(dbUser.id);
     if (!portfolio) {
-      // Create new portfolio with the selected strategy
-      const strategyConfig = STRATEGIES[strategy as keyof typeof STRATEGIES];
-      portfolio = await PortfolioService.createPortfolio({
-        user_id: dbUser.id,
-        strategy: strategy as 'low' | 'medium' | 'high',
-        wbtc_allocation: strategyConfig.allocations.WBTC,
-        big_caps_allocation: strategyConfig.allocations.BIG_CAPS,
-        mid_lower_caps_allocation: strategyConfig.allocations.MID_LOWER_CAPS,
-        stablecoins_allocation: strategyConfig.allocations.STABLECOINS,
-      });
-
-      if (!portfolio) {
-        return NextResponse.json({ error: 'Failed to create portfolio' }, { status: 500 });
-      }
+      return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 });
     }
 
-    // Execute strategy on smart contract
+    // Execute emergency rebalance on smart contract
     // Note: In production, you would use the actual private key from secure storage
     const mockPrivateKey = process.env.SMART_WALLET_PRIVATE_KEY || '0x1234567890123456789012345678901234567890123456789012345678901234';
     
-    const contractResult = await SmartContractService.executeStrategy(
+    const contractResult = await SmartContractService.emergencyRebalanceToStablecoin(
       dbUser.wallet_address as `0x${string}`,
-      strategy,
       mockPrivateKey
     );
 
@@ -67,12 +45,13 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Update portfolio in database
-    const updatedPortfolio = await PortfolioService.updateStrategy(portfolio.id, strategy, {
-      wbtc: STRATEGIES[strategy as keyof typeof STRATEGIES].allocations.WBTC,
-      bigCaps: STRATEGIES[strategy as keyof typeof STRATEGIES].allocations.BIG_CAPS,
-      midLowerCaps: STRATEGIES[strategy as keyof typeof STRATEGIES].allocations.MID_LOWER_CAPS,
-      stablecoins: STRATEGIES[strategy as keyof typeof STRATEGIES].allocations.STABLECOINS,
+    // Update portfolio to 100% stablecoins
+    const updatedPortfolio = await PortfolioService.updatePortfolio(portfolio.id, {
+      wbtc_allocation: 0,
+      big_caps_allocation: 0,
+      mid_lower_caps_allocation: 0,
+      stablecoins_allocation: 100,
+      last_rebalanced: new Date().toISOString(),
     });
 
     if (!updatedPortfolio) {
@@ -80,15 +59,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Store transaction record
-    // Note: This would typically be done in a transaction service
-    console.log(`Strategy execution transaction: ${contractResult.txHash}`);
+    console.log(`Emergency rebalance transaction: ${contractResult.txHash}`);
 
     return NextResponse.json({
       success: true,
-      message: 'Strategy executed successfully on blockchain',
+      message: 'Emergency rebalance to stablecoin executed successfully',
       transactionHash: contractResult.txHash,
-      allocation: STRATEGIES[strategy as keyof typeof STRATEGIES].allocations,
-      strategy,
       portfolio: updatedPortfolio ? {
         id: updatedPortfolio.id,
         strategy: updatedPortfolio.strategy,
@@ -104,9 +80,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error executing strategy:', error);
+    console.error('Error executing emergency rebalance:', error);
     return NextResponse.json(
-      { error: 'Failed to execute strategy' },
+      { error: 'Failed to execute emergency rebalance' },
       { status: 500 }
     );
   }

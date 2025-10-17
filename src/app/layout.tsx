@@ -6,13 +6,19 @@ import { Web3Provider } from '@/components/Web3Provider'
 import ConditionalNavigation from '@/components/ConditionalNavigation'
 import AnimatedBackground from '@/components/background/animated-background'
 import Footer from '@/components/footer'
-import Navigation from '@/components/nav'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Momentum - AI-Powered Portfolio Management',
   description: 'AI-driven automatic rebalancing on Base blockchain',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' }
+    ],
+    apple: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -32,7 +38,7 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           <Web3Provider>
-            <Navigation />
+            <ConditionalNavigation />
             <AnimatedBackground />
             {children}  
             <Footer />

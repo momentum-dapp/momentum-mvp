@@ -8,12 +8,11 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ArrowPathIcon,
-  ArrowLeftIcon,
   FunnelIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from '@/lib/utils';
-import Link from 'next/link';
+import AnimatedBackground from '@/components/background/animated-background';
 
 interface Transaction {
   id: string;
@@ -375,8 +374,9 @@ export default function TransactionHistoryClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20 pb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen relative pt-20 pb-8">
+        <AnimatedBackground />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -393,30 +393,22 @@ export default function TransactionHistoryClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen relative pt-20 pb-8">
+      <AnimatedBackground />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link
-                href="/portfolio"
-                className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                Back to Portfolio
-              </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Transaction History</h1>
-                <p className="text-gray-600 mt-2">
-                  View and track all your portfolio transactions
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Transaction History</h1>
+              <p className="text-gray-200 mt-2">
+                View and track all your portfolio transactions
+              </p>
             </div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex items-center px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-white/10 backdrop-blur-sm text-white rounded-lg border border-white/20 hover:bg-white/20 transition-colors"
               >
                 <FunnelIcon className="h-4 w-4 mr-2" />
                 Filters
@@ -427,17 +419,17 @@ export default function TransactionHistoryClient() {
 
         {/* Search and Filters */}
         <div className="mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
             {/* Search */}
             <div className="mb-4">
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-300" />
                 <input
                   type="text"
                   placeholder="Search by transaction hash, asset, or type..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full pl-10 pr-4 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white placeholder-gray-300 focus:ring-2 focus:ring-white/50 focus:border-white/50"
                 />
               </div>
             </div>
@@ -446,62 +438,62 @@ export default function TransactionHistoryClient() {
             {showFilters && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                  <label className="block text-sm font-medium text-white mb-2">Type</label>
                   <select
                     value={filters.type}
                     onChange={(e) => handleFilterChange('type', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    <option value="all">All Types</option>
-                    <option value="deposit">Deposit</option>
-                    <option value="withdrawal">Withdrawal</option>
-                    <option value="rebalance">Rebalance</option>
-                    <option value="swap">Swap</option>
+                    <option value="all" className="bg-gray-800 text-white">All Types</option>
+                    <option value="deposit" className="bg-gray-800 text-white">Deposit</option>
+                    <option value="withdrawal" className="bg-gray-800 text-white">Withdrawal</option>
+                    <option value="rebalance" className="bg-gray-800 text-white">Rebalance</option>
+                    <option value="swap" className="bg-gray-800 text-white">Swap</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <label className="block text-sm font-medium text-white mb-2">Status</label>
                   <select
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    <option value="all">All Status</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="pending">Pending</option>
-                    <option value="failed">Failed</option>
+                    <option value="all" className="bg-gray-800 text-white">All Status</option>
+                    <option value="confirmed" className="bg-gray-800 text-white">Confirmed</option>
+                    <option value="pending" className="bg-gray-800 text-white">Pending</option>
+                    <option value="failed" className="bg-gray-800 text-white">Failed</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Asset</label>
+                  <label className="block text-sm font-medium text-white mb-2">Asset</label>
                   <select
                     value={filters.asset}
                     onChange={(e) => handleFilterChange('asset', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    <option value="all">All Assets</option>
-                    <option value="USDC">USDC</option>
-                    <option value="USDT">USDT</option>
-                    <option value="WBTC">WBTC</option>
-                    <option value="ETH">ETH</option>
-                    <option value="BIG_CAPS">BIG_CAPS</option>
+                    <option value="all" className="bg-gray-800 text-white">All Assets</option>
+                    <option value="USDC" className="bg-gray-800 text-white">USDC</option>
+                    <option value="USDT" className="bg-gray-800 text-white">USDT</option>
+                    <option value="WBTC" className="bg-gray-800 text-white">WBTC</option>
+                    <option value="ETH" className="bg-gray-800 text-white">ETH</option>
+                    <option value="BIG_CAPS" className="bg-gray-800 text-white">BIG_CAPS</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                  <label className="block text-sm font-medium text-white mb-2">Date Range</label>
                   <select
                     value={filters.dateRange}
                     onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-white/50 focus:border-white/50"
                   >
-                    <option value="all">All Time</option>
-                    <option value="1">Last 24 hours</option>
-                    <option value="7">Last 7 days</option>
-                    <option value="30">Last 30 days</option>
-                    <option value="90">Last 90 days</option>
+                    <option value="all" className="bg-gray-800 text-white">All Time</option>
+                    <option value="1" className="bg-gray-800 text-white">Last 24 hours</option>
+                    <option value="7" className="bg-gray-800 text-white">Last 7 days</option>
+                    <option value="30" className="bg-gray-800 text-white">Last 30 days</option>
+                    <option value="90" className="bg-gray-800 text-white">Last 90 days</option>
                   </select>
                 </div>
               </div>
@@ -512,11 +504,11 @@ export default function TransactionHistoryClient() {
               <div className="flex justify-between items-center">
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  className="text-sm text-gray-300 hover:text-white transition-colors"
                 >
                   Clear all filters
                 </button>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-300">
                   {transactions.length} transaction{transactions.length !== 1 ? 's' : ''} found
                 </div>
               </div>
@@ -525,23 +517,23 @@ export default function TransactionHistoryClient() {
         </div>
 
         {/* Transactions List */}
-        <div className="bg-white rounded-lg shadow-sm">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm border border-white/20">
           {transactions.length === 0 ? (
             <div className="p-12 text-center">
-              <div className="text-gray-400 mb-4">
+              <div className="text-gray-300 mb-4">
                 <ClockIcon className="h-12 w-12 mx-auto" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions found</h3>
-              <p className="text-gray-500">
+              <h3 className="text-lg font-medium text-white mb-2">No transactions found</h3>
+              <p className="text-gray-300">
                 {Object.values(filters).some(f => f !== 'all') || searchTerm
                   ? 'Try adjusting your filters or search terms.'
                   : 'You haven\'t made any transactions yet.'}
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-white/20">
               {transactions.map((transaction) => (
-                <div key={transaction.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div key={transaction.id} className="p-6 hover:bg-white/5 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
@@ -558,7 +550,7 @@ export default function TransactionHistoryClient() {
                           </span>
                         </div>
                         
-                        <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
+                        <div className="flex items-center space-x-4 mt-1 text-sm text-gray-300">
                           <span className="font-medium">{transaction.asset}</span>
                           <span>•</span>
                           <span>{formatDate(transaction.createdAt)}</span>
@@ -567,7 +559,7 @@ export default function TransactionHistoryClient() {
                             href={`https://sepolia.basescan.org/tx/${transaction.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-indigo-600 hover:text-indigo-500 font-mono"
+                            className="text-blue-400 hover:text-blue-300 font-mono"
                           >
                             {truncateHash(transaction.txHash)}
                           </a>
@@ -583,15 +575,15 @@ export default function TransactionHistoryClient() {
                     
                     <div className="text-right">
                       <p className={`font-medium text-lg ${
-                        transaction.type === 'deposit' ? 'text-green-600' : 
-                        transaction.type === 'withdrawal' ? 'text-red-600' : 
-                        'text-gray-900'
+                        transaction.type === 'deposit' ? 'text-green-400' : 
+                        transaction.type === 'withdrawal' ? 'text-red-400' : 
+                        'text-white'
                       }`}>
                         {transaction.type === 'deposit' ? '+' : 
                          transaction.type === 'withdrawal' ? '-' : ''}
                         {formatCurrency(transaction.amount)}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-300">
                         {new Date(transaction.createdAt).toLocaleTimeString()}
                       </p>
                       {transaction.gasUsed && transaction.gasPrice && (
@@ -610,21 +602,21 @@ export default function TransactionHistoryClient() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-300">
               Page {currentPage} of {totalPages}
             </div>
             <div className="flex space-x-2">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-sm border border-white/30 rounded-lg bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-sm border border-white/30 rounded-lg bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>

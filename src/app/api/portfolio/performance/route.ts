@@ -5,6 +5,21 @@ import { PortfolioService } from '@/lib/services/portfolio-service';
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if Clerk is configured
+    if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
+      console.warn('Clerk not configured, returning mock data');
+      // Return mock data when Clerk is not configured
+      const mockData = generateMockPerformanceData(10000, 30);
+      return NextResponse.json({
+        performance: mockData,
+        portfolio: {
+          id: 'mock-portfolio',
+          totalValue: 10000,
+          strategy: 'medium',
+        }
+      });
+    }
+
     const user = await currentUser();
     
     if (!user) {
@@ -61,9 +76,9 @@ function generateMockPerformanceData(initialValue: number, days: number) {
     const randomChange = (Math.random() - 0.5) * volatility;
     const dailyChange = trend + randomChange;
     
-    const previousValue = i === days ? initialValue : data[data.length - 1].value;
-    const value = previousValue * (1 + dailyChange);
-    const change = i === days ? 0 : ((value - previousValue) / previousValue) * 100;
+    const previousValue: number = i === days ? initialValue : data[data.length - 1].value;
+    const value: number = previousValue * (1 + dailyChange);
+    const change: number = i === days ? 0 : ((value - previousValue) / previousValue) * 100;
     
     data.push({
       date: date.toISOString().split('T')[0],

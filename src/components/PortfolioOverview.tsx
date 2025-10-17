@@ -112,7 +112,7 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold">
-              {walletBalance ? formatCurrency(walletBalance) : 'Loading...'}
+              {walletBalance !== null ? formatCurrency(walletBalance) : formatCurrency(0)}
             </p>
             <p className="text-indigo-100 text-sm">Total Assets</p>
           </div>

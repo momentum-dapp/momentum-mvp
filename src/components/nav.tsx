@@ -8,16 +8,7 @@ import { useTheme } from "next-themes"
 import { motion } from "framer-motion"
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 
-const menuItems = [
-    { name: 'Home', href: '/' },
-    { name: 'Generate', href: '/ai-advisor' },
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Earn', href: '/earn' },
-    { name: 'Portfolio', href: '/portfolio' },
-    { name: 'Docs', href: '/docs' },
-    { name: 'Portofolio', href: '/portofolio' },
-    { name: 'Faucet', href: '/faucet' },
-]
+const menuItems: { name: string; href: string }[] = [];
 
 export default function Navigation() {
     const { theme, setTheme } = useTheme()
@@ -30,12 +21,12 @@ export default function Navigation() {
                 <div className="mx-auto max-w-7xl px-6 lg:px-12">
                     <motion.div
                         key={1}
-                        className="relative flex flex-wrap items-center justify-between gap-6 py-4 duration-200 lg:gap-0"
+                        className="relative flex flex-wrap items-center justify-between gap-6 py-2 duration-200 lg:gap-0"
                     >
                         <div className="flex w-full items-center justify-between gap-12 lg:w-auto">
-                            <Link href="/" aria-label="home" className="flex items-center space-x-2">
+                            <Link href="/dashboard" aria-label="home" className="flex items-center space-x-2">
                                 <div className="text-2xl font-bold text-white flex items-center">
-                                    <img src="/momentum-logos.png" alt="" className="w-20" />
+                                    <img src="/momentum-logos.png" alt="" className="w-16 h-12 object-contain" />
                                     {/* <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                                         MomentumFI
                                     </span> */}
@@ -68,7 +59,7 @@ export default function Navigation() {
                         <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit lg:w-fit lg:gap-6 lg:space-y-0 items-center justify-end">
                             {/* GitHub Icon */}
                             <a
-                                href="https://github.com/orgs/momentum-dapp/repositories"
+                                href="https://github.com/momentum-dapp/momentum-mvp"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 aria-label="GitHub"
