@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useState, useEffect } from 'react';
+// Removed wagmi hooks - using custody wallet instead
 import { 
   ArrowDownIcon, 
   ArrowUpIcon,
@@ -25,11 +24,26 @@ interface Web3ActionsProps {
 }
 
 export default function Web3Actions({ portfolio, onTransactionComplete }: Web3ActionsProps) {
-  const { address, isConnected } = useAccount();
+  // Using custody wallet - no need for external wallet connection
   const [activeAction, setActiveAction] = useState<'deposit' | 'withdraw' | null>(null);
   const [amount, setAmount] = useState('');
   const [selectedAsset, setSelectedAsset] = useState('USDC');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchWalletAddress();
+  }, []);
+
+  const fetchWalletAddress = async () => {
+    try {
+      const response = await fetch('/api/wallet');
+      const data = await response.json();
+      setWalletAddress(data.walletAddress);
+    } catch (error) {
+      console.error('Error fetching wallet address:', error);
+    }
+  };
 
   const assets = [
     { symbol: 'USDC', name: 'USD Coin', balance: '1,250.00' },
@@ -79,21 +93,9 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
     }
   };
 
-  if (!isConnected) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Connect Your Wallet
-          </h3>
-          <p className="text-gray-600 mb-4">
-            Connect your external wallet to deposit funds and interact with your portfolio.
-          </p>
-          <ConnectButton />
-        </div>
-      </div>
-    );
-  }
+  // Removed wallet connection logic - using custody wallet
+
+  // Remove wallet connection requirement - using custody wallet instead
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -206,9 +208,9 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
 
       <div className="mt-6 pt-4 border-t border-gray-200">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Connected Wallet:</span>
+          <span className="text-gray-500">Custody Wallet:</span>
           <span className="font-mono text-gray-900">
-            {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Not connected'}
+            {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Not Available'}
           </span>
         </div>
       </div>

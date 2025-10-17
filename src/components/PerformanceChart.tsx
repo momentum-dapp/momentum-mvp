@@ -14,14 +14,23 @@ interface PerformanceData {
   change: number;
 }
 
-export default function PerformanceChart() {
+interface PerformanceChartProps {
+  data?: PerformanceData[];
+}
+
+export default function PerformanceChart({ data }: PerformanceChartProps) {
   const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d'>('7d');
 
   useEffect(() => {
-    fetchPerformanceData();
-  }, [timeframe]);
+    if (data) {
+      setPerformanceData(data);
+      setLoading(false);
+    } else {
+      fetchPerformanceData();
+    }
+  }, [data, timeframe]);
 
   const fetchPerformanceData = async () => {
     try {
@@ -29,7 +38,7 @@ export default function PerformanceChart() {
       
       // Generate mock performance data based on timeframe
       const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
-      const data: PerformanceData[] = [];
+      const mockData: PerformanceData[] = [];
       const baseValue = 10000;
       
       for (let i = days; i >= 0; i--) {
@@ -44,16 +53,16 @@ export default function PerformanceChart() {
         
         const value = i === days 
           ? baseValue 
-          : data[data.length - 1].value * (1 + dailyChange);
+          : mockData[mockData.length - 1].value * (1 + dailyChange);
         
-        data.push({
+        mockData.push({
           date: date.toISOString().split('T')[0],
           value,
           change: dailyChange * 100
         });
       }
       
-      setPerformanceData(data);
+      setPerformanceData(mockData);
     } catch (error) {
       console.error('Error fetching performance data:', error);
     } finally {

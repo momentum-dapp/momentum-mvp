@@ -1,0 +1,29 @@
+{
+  "name": "ai-oracle-bot",
+  "version": "1.0.0",
+  "description": "AI Oracle Automation Bot for Momentum Portfolio Management",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "start:optimized": "node index-optimized.js",
+    "dev": "node index.js",
+    "dev:optimized": "node index-optimized.js",
+    "deploy": "vercel --prod",
+    "deploy:optimized": "cp index-optimized.js index.js && vercel --prod",
+    "test-setup": "node test-setup.js",
+    "test-conditional": "node test-conditional-updates.js",
+    "cost-calc": "node cost-calculator.js"
+  },
+  "keywords": ["blockchain", "automation", "defi", "portfolio"],
+  "author": "Momentum Team",
+  "license": "MIT",
+  "dependencies": {
+    "ethers": "^6.8.0",
+    "node-cron": "^3.0.2",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

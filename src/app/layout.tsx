@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Web3Provider } from '@/components/Web3Provider'
-import Navigation from '@/components/nav'
+import ConditionalNavigation from '@/components/ConditionalNavigation'
 import AnimatedBackground from '@/components/background/animated-background'
 import Footer from '@/components/footer'
 
@@ -12,6 +12,13 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Momentum - AI-Powered Portfolio Management',
   description: 'AI-driven automatic rebalancing on Base blockchain',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' }
+    ],
+    apple: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -31,9 +38,9 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           <Web3Provider>
-            <Navigation />
+            <ConditionalNavigation />
             <AnimatedBackground />
-            {children}
+            {children}  
             <Footer />
           </Web3Provider>
         </body>

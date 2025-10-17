@@ -1,0 +1,38 @@
+# AI Oracle Bot Configuration - OPTIMIZED VERSION
+# Copy this file to .env and fill in your values
+
+# Network Configuration
+RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID
+# Alternative RPC providers:
+# RPC_URL=https://sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_API_KEY
+# RPC_URL=https://rpc.sepolia.org
+
+# Wallet Configuration
+PRIVATE_KEY=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+
+# Contract Configuration
+AI_ORACLE_ADDRESS=0x1234567890123456789012345678901234567890
+
+# Bot Configuration
+UPDATE_INTERVAL=*/30 * * * *  # Every 30 minutes (cost optimized)
+
+# Cost Optimization Settings
+PRICE_CHANGE_THRESHOLD=5      # Only update if price changes by 5% or more
+MAX_GAS_PRICE=3               # Maximum gas price in gwei (skip if higher)
+
+# Update Frequency Examples:
+# UPDATE_INTERVAL=*/5 * * * *   # Every 5 minutes (high cost)
+# UPDATE_INTERVAL=*/15 * * * *  # Every 15 minutes (medium cost)
+# UPDATE_INTERVAL=*/30 * * * *  # Every 30 minutes (low cost)
+# UPDATE_INTERVAL=0 */1 * * *   # Every hour (very low cost)
+
+# Price Change Threshold Examples:
+# PRICE_CHANGE_THRESHOLD=1      # Update on 1% price change (frequent updates)
+# PRICE_CHANGE_THRESHOLD=5      # Update on 5% price change (balanced)
+# PRICE_CHANGE_THRESHOLD=10     # Update on 10% price change (infrequent updates)
+
+# Gas Price Limits (gwei):
+# MAX_GAS_PRICE=1               # Very conservative (may skip many updates)
+# MAX_GAS_PRICE=3               # Balanced (recommended)
+# MAX_GAS_PRICE=5               # Less conservative
+# MAX_GAS_PRICE=10              # Only skip during extreme congestion

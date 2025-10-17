@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
 import { currentUser } from '@clerk/nextjs/server';
-import AdvisorClient from './advisor-client';
+import TransactionHistoryClient from './transaction-history-client';
 
-export default async function AIAdvisorPage() {
+export default async function TransactionHistoryPage() {
   const user = await currentUser();
 
   if (!user) {
     redirect('/sign-in');
   }
 
-  return <AdvisorClient />;
+  return <TransactionHistoryClient />;
 }

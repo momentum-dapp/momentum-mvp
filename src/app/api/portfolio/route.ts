@@ -6,6 +6,30 @@ import { STRATEGIES } from '@/lib/contracts/addresses';
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if Clerk is configured
+    if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
+      console.warn('Clerk not configured, returning mock data');
+      // Return mock data when Clerk is not configured
+      return NextResponse.json({
+        hasPortfolio: true,
+        portfolio: {
+          id: 'mock-portfolio',
+          strategy: 'medium',
+          totalValue: 10000,
+          allocations: {
+            WBTC: 25,
+            BIG_CAPS: 35,
+            MID_LOWER_CAPS: 25,
+            STABLECOINS: 15,
+          },
+          lastRebalanced: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          isActive: true,
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      });
+    }
+
     const user = await currentUser();
     
     if (!user) {
