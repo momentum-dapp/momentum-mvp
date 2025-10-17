@@ -31,7 +31,7 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           <Web3Provider>
-            {/* <Navigation /> */}
+            <Navigation />
             <AnimatedBackground />
             {children}
             <Footer />

@@ -11,10 +11,11 @@ import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 
 const menuItems = [
     { name: 'Home', href: '/' },
-    { name: 'Earn', href: '/earn' },
-    { name: 'Portofolio', href: '/portofolio' },
+    { name: 'Generate', href: '/ai-advisor' },
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Docs', href: '/docs' },
+    { name: 'Portofolio', href: '/portofolio' },
+    { name: 'Faucet', href: '/faucet' },
 ]
 
 export default function Navigation() {
@@ -42,10 +43,10 @@ export default function Navigation() {
                         <div className="flex w-full items-center justify-between gap-12 lg:w-auto">
                             <Link href="/" aria-label="home" className="flex items-center space-x-2">
                                 <div className="text-2xl font-bold text-white flex items-center">
-                                    <img src="/logo.png" alt="" className="w-20" />
-                                    <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                                    <img src="/momentum-logos.png" alt="" className="w-20" />
+                                    {/* <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                                         MomentumFI
-                                    </span>
+                                    </span> */}
                                 </div>
                             </Link>
                             {/* Menu mobile button bisa ditambah di sini jika ingin */}
