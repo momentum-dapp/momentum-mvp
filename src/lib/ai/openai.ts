@@ -10,6 +10,17 @@ export const openai = new OpenAI({
 
 const MODEL = 'gpt-4o-mini';
 
+// Helper function to extract JSON from markdown code blocks
+function extractJsonFromMarkdown(content: string): string {
+  // Remove markdown code block formatting if present
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+  // If no code blocks found, return the content as-is
+  return content.trim();
+}
+
 export const SYSTEM_PROMPT = `You are MomentumAI, an expert financial advisor specializing in cryptocurrency portfolio management. You help users make informed investment decisions based on their risk tolerance and market conditions.
 
 Your primary responsibilities:
@@ -115,7 +126,8 @@ ${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}`;
       throw new Error('No response content');
     }
 
-    return JSON.parse(content) as RiskAssessment;
+    const jsonContent = extractJsonFromMarkdown(content);
+    return JSON.parse(jsonContent) as RiskAssessment;
   } catch (error) {
     console.error('Risk assessment error:', error);
     // Fallback to medium risk if assessment fails
@@ -162,7 +174,8 @@ Respond with a JSON object containing:
       throw new Error('No response content');
     }
 
-    return JSON.parse(content);
+    const jsonContent = extractJsonFromMarkdown(content);
+    return JSON.parse(jsonContent);
   } catch (error) {
     console.error('Market sentiment analysis error:', error);
     // Fallback to neutral sentiment
