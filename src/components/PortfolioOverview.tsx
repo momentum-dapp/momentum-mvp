@@ -92,8 +92,8 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
 
   const allocationData = Object.entries(portfolio.allocations).map(([asset, percentage]) => ({
     asset: asset as keyof typeof assetNames,
-    percentage,
-    value: (portfolio.totalValue * percentage) / 100,
+    percentage: isNaN(percentage) ? 0 : percentage,
+    value: isNaN(portfolio.totalValue) || isNaN(percentage) ? 0 : (portfolio.totalValue * percentage) / 100,
   }));
 
   return (

@@ -98,8 +98,8 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
   // Remove wallet connection requirement - using custody wallet instead
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Portfolio Actions</h3>
+    <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+      <h3 className="text-lg font-semibold text-white mb-4">Portfolio Actions</h3>
       
       {!activeAction ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -122,25 +122,25 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium text-gray-900 capitalize">
+            <h4 className="font-medium text-white capitalize">
               {activeAction} Funds
             </h4>
             <button
               onClick={() => setActiveAction(null)}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-300 hover:text-white"
             >
               ✕
             </button>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-200 mb-2">
               Select Asset
             </label>
             <select
               value={selectedAsset}
               onChange={(e) => setSelectedAsset(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-white/20 rounded-md bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {assets.map((asset) => (
                 <option key={asset.symbol} value={asset.symbol}>
@@ -151,7 +151,7 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-200 mb-2">
               Amount
             </label>
             <div className="relative">
@@ -160,10 +160,10 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-white/20 rounded-md bg-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                <span className="text-gray-500 text-sm">{selectedAsset}</span>
+                <span className="text-gray-300 text-sm">{selectedAsset}</span>
               </div>
             </div>
           </div>
@@ -190,15 +190,15 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
             
             <button
               onClick={() => setActiveAction(null)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 border border-white/20 text-gray-200 rounded-md hover:bg-white/10 transition-colors"
             >
               Cancel
             </button>
           </div>
 
           {activeAction === 'deposit' && (
-            <div className="bg-blue-50 p-3 rounded-md">
-              <p className="text-sm text-blue-700">
+            <div className="bg-blue-500/20 p-3 rounded-md border border-blue-500/30">
+              <p className="text-sm text-blue-200">
                 <strong>Note:</strong> Deposited funds will be automatically allocated according to your portfolio strategy.
               </p>
             </div>
@@ -206,10 +206,10 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
         </div>
       )}
 
-      <div className="mt-6 pt-4 border-t border-gray-200">
+      <div className="mt-6 pt-4 border-t border-white/20">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Custody Wallet:</span>
-          <span className="font-mono text-gray-900">
+          <span className="text-gray-300">Custody Wallet:</span>
+          <span className="font-mono text-white">
             {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Not Available'}
           </span>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   ChartBarIcon,
   ArrowTrendingUpIcon,
@@ -23,16 +23,7 @@ export default function PerformanceChart({ data }: PerformanceChartProps) {
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d'>('7d');
 
-  useEffect(() => {
-    if (data) {
-      setPerformanceData(data);
-      setLoading(false);
-    } else {
-      fetchPerformanceData();
-    }
-  }, [data, timeframe]);
-
-  const fetchPerformanceData = async () => {
+  const fetchPerformanceData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -68,27 +59,42 @@ export default function PerformanceChart({ data }: PerformanceChartProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeframe]);
+
+  useEffect(() => {
+    if (data) {
+      setPerformanceData(data);
+      setLoading(false);
+    } else {
+      fetchPerformanceData();
+    }
+  }, [data, fetchPerformanceData]);
 
   const getTotalReturn = () => {
     if (performanceData.length < 2) return 0;
     const firstValue = performanceData[0].value;
     const lastValue = performanceData[performanceData.length - 1].value;
-    return ((lastValue - firstValue) / firstValue) * 100;
+    if (!firstValue || firstValue === 0 || isNaN(firstValue) || isNaN(lastValue)) return 0;
+    const result = ((lastValue - firstValue) / firstValue) * 100;
+    return isNaN(result) || !isFinite(result) ? 0 : result;
   };
 
   const getMaxValue = () => {
-    return Math.max(...performanceData.map(d => d.value));
+    if (performanceData.length === 0) return 0;
+    const values = performanceData.map(d => d.value).filter(v => !isNaN(v) && isFinite(v));
+    return values.length > 0 ? Math.max(...values) : 0;
   };
 
   const getMinValue = () => {
-    return Math.min(...performanceData.map(d => d.value));
+    if (performanceData.length === 0) return 0;
+    const values = performanceData.map(d => d.value).filter(v => !isNaN(v) && isFinite(v));
+    return values.length > 0 ? Math.min(...values) : 0;
   };
 
   const totalReturn = getTotalReturn();
   const maxValue = getMaxValue();
   const minValue = getMinValue();
-  const range = maxValue - minValue;
+  const range = maxValue - minValue || 1; // Prevent division by zero
 
   if (loading) {
     return (

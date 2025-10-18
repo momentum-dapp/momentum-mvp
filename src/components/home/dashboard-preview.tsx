@@ -96,7 +96,7 @@ export default function DashboardPreview() {
                         transition={{ duration: 0.3 }}
                     >
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-400 text-sm">Today's Earning</span>
+                            <span className="text-gray-400 text-sm">Today&apos;s Earning</span>
                             <div className="w-8 h-8 bg-green-600/20 rounded-lg flex items-center justify-center">
                                 <span className="text-green-400 text-sm">📈</span>
                             </div>

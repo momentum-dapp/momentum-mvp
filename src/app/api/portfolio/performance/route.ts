@@ -78,12 +78,12 @@ function generateMockPerformanceData(initialValue: number, days: number) {
     
     const previousValue: number = i === days ? initialValue : data[data.length - 1].value;
     const value: number = previousValue * (1 + dailyChange);
-    const change: number = i === days ? 0 : ((value - previousValue) / previousValue) * 100;
+    const change: number = i === days ? 0 : previousValue > 0 ? ((value - previousValue) / previousValue) * 100 : 0;
     
     data.push({
       date: date.toISOString().split('T')[0],
-      value: Math.round(value * 100) / 100,
-      change: Math.round(change * 100) / 100,
+      value: isNaN(value) || !isFinite(value) ? initialValue : Math.round(value * 100) / 100,
+      change: isNaN(change) || !isFinite(change) ? 0 : Math.round(change * 100) / 100,
     });
   }
   

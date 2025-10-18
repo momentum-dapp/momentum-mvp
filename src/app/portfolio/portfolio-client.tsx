@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   ChartPieIcon, 
   ArrowPathIcon,
@@ -8,12 +8,19 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   WalletIcon,
-  ClockIcon
+  ClockIcon,
+  SparklesIcon,
+  ArrowUpIcon,
+  ArrowsUpDownIcon,
+  ClockIcon as HistoryIcon
 } from '@heroicons/react/24/outline';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import PerformanceChart from '@/components/PerformanceChart';
 import WalletDisplay from '@/components/WalletDisplay';
 import EmergencyRebalance from '@/components/EmergencyRebalance';
+import AIAdvisor from '@/components/AIAdvisor';
+import Web3Actions from '@/components/Web3Actions';
+import TransactionHistory from '@/components/TransactionHistory';
 import Link from 'next/link';
 
 interface Portfolio {
@@ -43,6 +50,7 @@ export default function PortfolioClient() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'ai-advisor' | 'actions' | 'history'>('overview');
 
   const strategyNames = {
     low: 'Conservative Strategy',
@@ -64,11 +72,7 @@ export default function PortfolioClient() {
     STABLECOINS: 'bg-green-500',
   };
 
-  useEffect(() => {
-    fetchPortfolioData();
-  }, []);
-
-  const fetchPortfolioData = async () => {
+  const fetchPortfolioData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -158,7 +162,11 @@ export default function PortfolioClient() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPortfolioData();
+  }, [fetchPortfolioData]);
 
   const generateMockPerformanceData = (initialValue: number, days: number): PerformanceData[] => {
     const data = [];
@@ -175,12 +183,12 @@ export default function PortfolioClient() {
       
       const previousValue: number = i === days ? initialValue : data[data.length - 1].value;
       const value: number = previousValue * (1 + dailyChange);
-      const change: number = i === days ? 0 : ((value - previousValue) / previousValue) * 100;
+      const change: number = i === days ? 0 : previousValue > 0 ? ((value - previousValue) / previousValue) * 100 : 0;
       
       data.push({
         date: date.toISOString().split('T')[0],
-        value: Math.round(value * 100) / 100,
-        change: Math.round(change * 100) / 100,
+        value: isNaN(value) || !isFinite(value) ? initialValue : Math.round(value * 100) / 100,
+        change: isNaN(change) || !isFinite(change) ? 0 : Math.round(change * 100) / 100,
       });
     }
     
@@ -266,7 +274,7 @@ export default function PortfolioClient() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-white mb-4">No Portfolio Found</h1>
-            <p className="text-gray-200 text-lg mb-8">You don't have an active portfolio yet.</p>
+            <p className="text-gray-200 text-lg mb-8">You don&apos;t have an active portfolio yet.</p>
             <Link
               href="/dashboard"
               className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
@@ -281,11 +289,11 @@ export default function PortfolioClient() {
 
   const allocationData = Object.entries(portfolio.allocations).map(([asset, percentage]) => ({
     asset: asset as keyof typeof assetNames,
-    percentage,
-    value: (portfolio.totalValue * percentage) / 100,
+    percentage: isNaN(percentage) ? 0 : percentage,
+    value: isNaN(portfolio.totalValue) || isNaN(percentage) ? 0 : (portfolio.totalValue * percentage) / 100,
   }));
 
-  const totalReturn = performanceData.length > 0 
+  const totalReturn = performanceData.length > 0 && performanceData[0].value > 0
     ? ((performanceData[performanceData.length - 1].value - performanceData[0].value) / performanceData[0].value) * 100
     : 0;
 
@@ -294,11 +302,11 @@ export default function PortfolioClient() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-2">Portfolio Overview</h1>
+              <h1 className="text-2xl font-bold text-white mb-2">Portfolio Management</h1>
               <p className="text-gray-200 text-lg">
-                Monitor your AI-powered portfolio performance and allocations
+                Monitor and manage your AI-powered portfolio
               </p>
             </div>
             <div className="flex space-x-3">
@@ -312,157 +320,227 @@ export default function PortfolioClient() {
               </button>
             </div>
           </div>
+
+          {/* Tab Navigation */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 p-1">
+            <nav className="flex space-x-1">
+              {[
+                { id: 'overview', name: 'Overview', icon: ChartPieIcon },
+                { id: 'ai-advisor', name: 'AI Advisor', icon: SparklesIcon },
+                { id: 'actions', name: 'Fund Actions', icon: ArrowsUpDownIcon },
+                { id: 'history', name: 'Transactions', icon: HistoryIcon },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-200 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4 mr-2" />
+                  {tab.name}
+                </button>
+              ))}
+            </nav>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Performance Chart */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">Portfolio Performance</h2>
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-300">Total Return</p>
-                    <p className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {totalReturn >= 0 ? '+' : ''}{totalReturn.toFixed(2)}%
-                    </p>
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Performance Chart */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-white">Portfolio Performance</h2>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <p className="text-sm text-gray-300">Total Return</p>
+                      <p className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {totalReturn >= 0 ? '+' : ''}{totalReturn.toFixed(2)}%
+                      </p>
+                    </div>
                   </div>
                 </div>
+                <PerformanceChart data={performanceData} />
               </div>
-              <PerformanceChart data={performanceData} />
-            </div>
 
-            {/* Asset Allocation */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-              <h3 className="text-xl font-semibold text-white mb-4">Asset Allocation</h3>
-              
-              {/* Allocation Chart */}
-              <div className="mb-6">
-                <div className="flex h-4 rounded-lg overflow-hidden">
-                  {allocationData.map(({ asset, percentage }) => (
-                    <div
-                      key={asset}
-                      className={assetColors[asset]}
-                      style={{ width: `${percentage}%` }}
-                      title={`${assetNames[asset]}: ${percentage}%`}
-                    />
+              {/* Asset Allocation */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+                <h3 className="text-xl font-semibold text-white mb-4">Asset Allocation</h3>
+                
+                {/* Allocation Chart */}
+                <div className="mb-6">
+                  <div className="flex h-4 rounded-lg overflow-hidden">
+                    {allocationData.map(({ asset, percentage }) => (
+                      <div
+                        key={asset}
+                        className={assetColors[asset]}
+                        style={{ width: `${percentage}%` }}
+                        title={`${assetNames[asset]}: ${percentage}%`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Allocation Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {allocationData.map(({ asset, percentage, value }) => (
+                    <div key={asset} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center">
+                        <div className={`w-3 h-3 rounded-full ${assetColors[asset]} mr-3`} />
+                        <div>
+                          <p className="font-medium text-white">{assetNames[asset]}</p>
+                          <p className="text-sm text-gray-300">{formatPercentage(percentage)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-white">{formatCurrency(value)}</p>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
+            </div>
 
-              {/* Allocation Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {allocationData.map(({ asset, percentage, value }) => (
-                  <div key={asset} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
-                    <div className="flex items-center">
-                      <div className={`w-3 h-3 rounded-full ${assetColors[asset]} mr-3`} />
-                      <div>
-                        <p className="font-medium text-white">{assetNames[asset]}</p>
-                        <p className="text-sm text-gray-300">{formatPercentage(percentage)}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-white">{formatCurrency(value)}</p>
-                    </div>
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Wallet Display */}
+              <WalletDisplay />
+
+              {/* Wallet Balance */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
+                <div className="flex items-center mb-4">
+                  <WalletIcon className="h-8 w-8 mr-3" />
+                  <div>
+                    <h2 className="text-lg font-semibold">Portfolio Value</h2>
+                    <p className="text-indigo-100 text-sm">
+                      Last updated {lastUpdate.toLocaleTimeString()}
+                    </p>
                   </div>
-                ))}
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold">
+                    {walletBalance !== null ? formatCurrency(walletBalance) : formatCurrency(0)}
+                  </p>
+                  <p className="text-indigo-100 text-sm">Total Assets</p>
+                </div>
               </div>
+
+              {/* Strategy Overview */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">
+                      {strategyNames[portfolio.strategy]}
+                    </h3>
+                    <p className="text-sm text-gray-300">
+                      Last rebalanced {new Date(portfolio.lastRebalanced).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <ChartPieIcon className="h-6 w-6 text-gray-300" />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Total Value</span>
+                    <span className="font-medium text-white">
+                      {formatCurrency(portfolio.totalValue)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Strategy</span>
+                    <span className="font-medium text-white capitalize">
+                      {portfolio.strategy} Risk
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">Status</span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      portfolio.isActive 
+                        ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                        : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                    }`}>
+                      {portfolio.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Metrics */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+                <h3 className="text-xl font-semibold text-white mb-4">Performance</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-400">+12.5%</p>
+                    <p className="text-sm text-gray-300">7 Days</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-400">+28.3%</p>
+                    <p className="text-sm text-gray-300">30 Days</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-400">+45.7%</p>
+                    <p className="text-sm text-gray-300">90 Days</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-400">0.85</p>
+                    <p className="text-sm text-gray-300">Sharpe Ratio</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Rebalance */}
+              <EmergencyRebalance onRebalanceComplete={fetchPortfolioData} />
             </div>
           </div>
+        )}
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Wallet Display */}
-            <WalletDisplay />
-
-            {/* Wallet Balance */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
-              <div className="flex items-center mb-4">
-                <WalletIcon className="h-8 w-8 mr-3" />
-                <div>
-                  <h2 className="text-lg font-semibold">Portfolio Value</h2>
-                  <p className="text-indigo-100 text-sm">
-                    Last updated {lastUpdate.toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold">
-                  {walletBalance !== null ? formatCurrency(walletBalance) : formatCurrency(0)}
-                </p>
-                <p className="text-indigo-100 text-sm">Total Assets</p>
-              </div>
-            </div>
-
-            {/* Strategy Overview */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-white">
-                    {strategyNames[portfolio.strategy]}
-                  </h3>
-                  <p className="text-sm text-gray-300">
-                    Last rebalanced {new Date(portfolio.lastRebalanced).toLocaleDateString()}
-                  </p>
-                </div>
-                <ChartPieIcon className="h-6 w-6 text-gray-300" />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-300">Total Value</span>
-                  <span className="font-medium text-white">
-                    {formatCurrency(portfolio.totalValue)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-300">Strategy</span>
-                  <span className="font-medium text-white capitalize">
-                    {portfolio.strategy} Risk
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-300">Status</span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    portfolio.isActive 
-                      ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
-                      : 'bg-red-500/20 text-red-300 border border-red-500/30'
-                  }`}>
-                    {portfolio.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Performance Metrics */}
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-              <h3 className="text-xl font-semibold text-white mb-4">Performance</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400">+12.5%</p>
-                  <p className="text-sm text-gray-300">7 Days</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400">+28.3%</p>
-                  <p className="text-sm text-gray-300">30 Days</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400">+45.7%</p>
-                  <p className="text-sm text-gray-300">90 Days</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-400">0.85</p>
-                  <p className="text-sm text-gray-300">Sharpe Ratio</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Emergency Rebalance */}
-            <EmergencyRebalance onRebalanceComplete={fetchPortfolioData} />
+        {/* AI Advisor Tab */}
+        {activeTab === 'ai-advisor' && (
+          <div className="pt-4">
+            <AIAdvisor 
+              currentPortfolio={portfolio ? {
+                id: portfolio.id,
+                strategy: portfolio.strategy,
+                totalValue: portfolio.totalValue,
+                allocations: portfolio.allocations
+              } : null}
+              onStrategySelected={(strategy) => {
+                // Refresh portfolio data after strategy change
+                fetchPortfolioData();
+              }}
+            />
           </div>
-        </div>
+        )}
+
+        {/* Actions Tab (Withdraw) */}
+        {activeTab === 'actions' && portfolio && (
+          <div className="pt-4">
+            <div className="max-w-2xl mx-auto">
+              <Web3Actions 
+                portfolio={portfolio}
+                onTransactionComplete={() => {
+                  // Refresh portfolio data after transaction
+                  fetchPortfolioData();
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Transaction History Tab */}
+        {activeTab === 'history' && (
+          <div className="pt-4">
+            <div className="max-w-4xl mx-auto">
+              <TransactionHistory />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

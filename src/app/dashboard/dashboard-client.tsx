@@ -157,7 +157,7 @@ export default function DashboardClient() {
                   Setting Up Your Wallet
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  We're automatically creating your secure custody wallet. This will only take a moment...
+                  We&apos;re automatically creating your secure custody wallet. This will only take a moment...
                 </p>
                 <button
                   onClick={() => fetchDashboardData()}

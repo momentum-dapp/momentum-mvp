@@ -10,6 +10,9 @@ export function formatCurrency(
   currency: string = 'USD',
   decimals: number = 2
 ): string {
+  if (isNaN(amount) || !isFinite(amount)) {
+    amount = 0
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
@@ -19,6 +22,9 @@ export function formatCurrency(
 }
 
 export function formatPercentage(value: number, decimals: number = 2): string {
+  if (isNaN(value) || !isFinite(value)) {
+    return '0.00%'
+  }
   return `${value.toFixed(decimals)}%`
 }
 
