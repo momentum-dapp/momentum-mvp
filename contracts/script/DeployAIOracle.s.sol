@@ -40,7 +40,7 @@ contract DeployAIOracleScript is Script {
             address(0x1234567890123456789012345678901234567890) // temporary address
         );
         ERC1967Proxy vaultProxy = new ERC1967Proxy(address(vaultImplementation), vaultInitData);
-        MomentumVault vault = MomentumVault(address(vaultProxy));
+        MomentumVault vault = MomentumVault(payable(address(vaultProxy)));
         console.log("MomentumVault proxy deployed at:", address(vault));
         
         // Deploy AI Oracle proxy first (needed for Portfolio Manager)

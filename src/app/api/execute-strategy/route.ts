@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
-import { UserService } from '@/lib/services/user-service';
+import { getCurrentUser } from '@/lib/auth-helpers';
 import { PortfolioService } from '@/lib/services/portfolio-service';
 import { SmartContractService } from '@/lib/contracts/smart-contract-service';
 import { STRATEGIES } from '@/lib/contracts/addresses';
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,25 +18,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid strategy' }, { status: 400 });
     }
 
-    // Get user from database
-    const dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Check if user has a wallet
-    if (!dbUser.wallet_address) {
-      return NextResponse.json({ error: 'User wallet not found' }, { status: 404 });
-    }
-
     // Get or create portfolio
-    let portfolio = await PortfolioService.getUserPortfolio(dbUser.id);
+    let portfolio = await PortfolioService.getUserPortfolio(user.id);
     
     if (!portfolio) {
       // Create new portfolio with the selected strategy
       const strategyConfig = STRATEGIES[strategy as keyof typeof STRATEGIES];
       portfolio = await PortfolioService.createPortfolio({
-        user_id: dbUser.id,
+        user_id: user.id,
         strategy: strategy as 'low' | 'medium' | 'high',
         wbtc_allocation: strategyConfig.allocations.WBTC,
         big_caps_allocation: strategyConfig.allocations.BIG_CAPS,

@@ -12,9 +12,12 @@ const UPDATE_INTERVAL = process.env.UPDATE_INTERVAL || '*/5 * * * *'; // Every 5
 // AI Oracle Contract ABI (minimal interface)
 const AI_ORACLE_ABI = [
     "function updateMarketDataFromBot(uint256 btcPrice, uint256 ethPrice, uint256 marketCap, uint256 volatility) external",
+    "function updateMarketDataAndPrices(uint256 btcPrice, uint256 ethPrice, uint256 marketCap, uint256 volatility, string[] tokenSymbols, uint256[] tokenPrices) external",
     "function currentMarketCondition() external view returns (uint8)",
     "function getMarketData() external view returns (uint256, uint256, uint256, uint256, uint256)",
-    "function getActiveUsersCount() external view returns (uint256)"
+    "function getActiveUsersCount() external view returns (uint256)",
+    "function getTokenPrice(string symbol) external view returns (uint256, uint256)",
+    "function getSupportedTokens() external view returns (string[])"
 ];
 
 class AIOracleBot {
@@ -96,10 +99,30 @@ class AIOracleBot {
 
             // Fetch real market data
             const marketData = await this.fetchRealMarketData();
-            const { btcPrice, ethPrice, marketCap, volatility } = marketData;
+            const { btcPrice, ethPrice, marketCap, volatility, allPrices } = marketData;
             
-            // Call the contract
-            const tx = await this.contract.updateMarketDataFromBot(btcPrice, ethPrice, marketCap, volatility);
+            // Prepare token symbols and prices for the contract
+            const tokenSymbols = [];
+            const tokenPrices = [];
+            
+            // Add all tokens except BTC and ETH (they're in main params)
+            for (const [symbol, price] of Object.entries(allPrices)) {
+                if (symbol !== 'BTC' && symbol !== 'ETH') {
+                    tokenSymbols.push(symbol);
+                    // Convert to 8 decimals for contract (multiply by 1e8)
+                    tokenPrices.push(Math.round(price * 1e8));
+                }
+            }
+            
+            // Call the contract with all data in one transaction
+            const tx = await this.contract.updateMarketDataAndPrices(
+                btcPrice,
+                ethPrice,
+                marketCap,
+                volatility,
+                tokenSymbols,
+                tokenPrices
+            );
             console.log(`📝 Transaction sent: ${tx.hash}`);
             
             // Wait for confirmation
@@ -113,6 +136,10 @@ class AIOracleBot {
             console.log(`   ETH Price: $${(Number(ethPrice) / 1e8).toLocaleString()}`);
             console.log(`   Market Cap: $${(Number(marketCap) / 1e9).toFixed(2)}B`);
             console.log(`   Volatility: ${volatility}%`);
+            console.log(`   Additional Tokens: ${tokenSymbols.length} tokens`);
+            tokenSymbols.forEach((symbol, index) => {
+                console.log(`   - ${symbol}: $${(Number(tokenPrices[index]) / 1e8).toLocaleString()}`);
+            });
             
             // Try to read back data from contract (optional - may not be available)
             try {
@@ -135,6 +162,9 @@ class AIOracleBot {
             this.updateCount++;
             this.errorCount = 0; // Reset error count on success
             
+            // Save token prices to file for frontend consumption
+            await this.saveTokenPrices();
+            
             return true;
         } catch (error) {
             this.errorCount++;
@@ -154,35 +184,85 @@ class AIOracleBot {
         try {
             console.log('📡 Fetching real market data from CoinGecko...');
             
-            // Fetch BTC and ETH prices from CoinGecko
-            const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_market_cap=true');
+            // Token mapping: Mock token symbol -> CoinGecko ID
+            const tokenMapping = {
+                'BTC': 'bitcoin',
+                'ETH': 'ethereum',
+                'WBTC': 'wrapped-bitcoin',
+                'cbBTC': 'coinbase-wrapped-btc',
+                'cbETH': 'coinbase-wrapped-staked-eth',
+                'DAI': 'dai',
+                'USDC': 'usd-coin',
+                'AERO': 'aerodrome-finance',
+                'BRETT': 'brett',
+                'DEGEN': 'degen-base',
+                'TOSHI': 'toshi'
+            };
             
-            const btcData = response.data.bitcoin;
-            const ethData = response.data.ethereum;
+            // Fetch all token prices in one request
+            const tokenIds = Object.values(tokenMapping).join(',');
+            const response = await axios.get(
+                `https://api.coingecko.com/api/v3/simple/price?ids=${tokenIds}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true`
+            );
+            
+            const prices = {};
+            const marketCaps = {};
+            const changes24h = {};
+            
+            // Process all token data
+            for (const [symbol, coinId] of Object.entries(tokenMapping)) {
+                if (response.data[coinId]) {
+                    const data = response.data[coinId];
+                    prices[symbol] = data.usd;
+                    marketCaps[symbol] = data.usd_market_cap || 0;
+                    changes24h[symbol] = Math.abs(data.usd_24h_change || 0);
+                }
+            }
+            
+            // Get BTC and ETH data for contract
+            const btcData = response.data[tokenMapping.BTC];
+            const ethData = response.data[tokenMapping.ETH];
             
             // Convert to 8 decimal format (multiply by 1e8)
             const btcPrice = Math.round(btcData.usd * 1e8);
             const ethPrice = Math.round(ethData.usd * 1e8);
             
-            // Calculate market cap (in billions)
+            // Calculate total market cap
             const btcMarketCap = Math.round(btcData.usd_market_cap / 1e9);
             const ethMarketCap = Math.round(ethData.usd_market_cap / 1e9);
-            const totalMarketCap = (btcMarketCap + ethMarketCap) * 1e9; // Convert back to full value
+            const totalMarketCap = (btcMarketCap + ethMarketCap) * 1e9;
             
-            // Simple volatility calculation (random for demo - in production, use historical data)
-            const volatility = Math.floor(Math.random() * 20) + 15; // 15-35% range
+            // Calculate average volatility from 24h price changes
+            const allChanges = Object.values(changes24h).filter(v => v > 0);
+            const avgVolatility = allChanges.length > 0 
+                ? Math.round(allChanges.reduce((a, b) => a + b, 0) / allChanges.length)
+                : 25;
             
-            console.log(`✅ Fetched real market data:`);
+            console.log(`✅ Fetched real market data for ${Object.keys(prices).length} tokens:`);
             console.log(`   BTC: $${btcData.usd.toLocaleString()} (Market Cap: $${btcMarketCap}B)`);
             console.log(`   ETH: $${ethData.usd.toLocaleString()} (Market Cap: $${ethMarketCap}B)`);
+            console.log(`   WBTC: $${prices.WBTC?.toLocaleString() || 'N/A'}`);
+            console.log(`   cbBTC: $${prices.cbBTC?.toLocaleString() || 'N/A'}`);
+            console.log(`   cbETH: $${prices.cbETH?.toLocaleString() || 'N/A'}`);
+            console.log(`   USDC: $${prices.USDC?.toFixed(4) || 'N/A'}`);
+            console.log(`   DAI: $${prices.DAI?.toFixed(4) || 'N/A'}`);
+            console.log(`   AERO: $${prices.AERO?.toFixed(4) || 'N/A'}`);
+            console.log(`   BRETT: $${prices.BRETT?.toFixed(6) || 'N/A'}`);
+            console.log(`   DEGEN: $${prices.DEGEN?.toFixed(6) || 'N/A'}`);
+            console.log(`   TOSHI: $${prices.TOSHI?.toFixed(8) || 'N/A'}`);
             console.log(`   Total Market Cap: $${(totalMarketCap / 1e9).toFixed(2)}B`);
-            console.log(`   Volatility: ${volatility}%`);
+            console.log(`   Average Volatility: ${avgVolatility}%`);
+            
+            // Store token prices for later use (optional - can be saved to file/DB)
+            this.tokenPrices = prices;
+            this.lastPriceUpdate = new Date();
             
             return {
                 btcPrice,
                 ethPrice,
                 marketCap: totalMarketCap,
-                volatility
+                volatility: avgVolatility,
+                allPrices: prices // Include all token prices
             };
         } catch (error) {
             console.error('❌ Failed to fetch real market data:', error.message);
@@ -193,8 +273,44 @@ class AIOracleBot {
                 btcPrice: 50000 * 1e8, // $50,000 in 8 decimals
                 ethPrice: 3000 * 1e8,  // $3,000 in 8 decimals
                 marketCap: 1000000000000, // $1T
-                volatility: 25 // 25%
+                volatility: 25, // 25%
+                allPrices: {
+                    BTC: 50000,
+                    ETH: 3000,
+                    WBTC: 50000,
+                    cbBTC: 50000,
+                    cbETH: 3000,
+                    USDC: 1.0,
+                    DAI: 1.0,
+                    AERO: 1.5,
+                    BRETT: 0.15,
+                    DEGEN: 0.01,
+                    TOSHI: 0.0001
+                }
             };
+        }
+    }
+
+    async saveTokenPrices() {
+        // Optional: Save token prices to a file or database for frontend consumption
+        if (!this.tokenPrices) return;
+        
+        try {
+            const fs = require('fs');
+            const priceData = {
+                timestamp: this.lastPriceUpdate,
+                prices: this.tokenPrices,
+                updateCount: this.updateCount
+            };
+            
+            // Save to JSON file
+            fs.writeFileSync(
+                './token-prices.json',
+                JSON.stringify(priceData, null, 2)
+            );
+            console.log('💾 Token prices saved to token-prices.json');
+        } catch (error) {
+            console.error('⚠️ Failed to save token prices:', error.message);
         }
     }
 

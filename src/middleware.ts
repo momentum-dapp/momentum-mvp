@@ -1,30 +1,68 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-const isPublicRoute = createRouteMatcher([
+// Public routes that don't require authentication
+const publicRoutes = [
   '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/api/webhooks(.*)',
-]);
+  '/sign-in',
+  '/api/auth',
+];
 
-export default clerkMiddleware((auth, req) => {
-  // Check if Clerk is configured
-  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
-    console.warn('Clerk not configured, skipping authentication middleware');
-    return;
+// Check if route is public
+function isPublicRoute(pathname: string): boolean {
+  return publicRoutes.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Allow public routes
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
   }
 
-  // Only protect routes if Clerk is properly configured
-  if (!isPublicRoute(req)) {
-    try {
-      auth.protect();
-    } catch (error) {
-      console.error('Authentication error:', error);
-      // Allow the request to continue if auth fails
-      return;
+  // Check for session cookie
+  const sessionCookie = request.cookies.get('wallet_session');
+  
+  if (!sessionCookie) {
+    // No session, redirect to sign-in
+    const url = new URL('/sign-in', request.url);
+    url.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(url);
+  }
+
+  try {
+    // Validate session
+    const sessionData = JSON.parse(sessionCookie.value);
+    
+    if (!sessionData.walletAddress) {
+      throw new Error('Invalid session');
     }
+
+    // Add wallet address to request headers for API routes
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-wallet-address', sessionData.walletAddress);
+
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  } catch (error) {
+    console.error('Session validation error:', error);
+    
+    // Invalid session, redirect to sign-in
+    const url = new URL('/sign-in', request.url);
+    url.searchParams.set('redirect', pathname);
+    
+    const response = NextResponse.redirect(url);
+    response.cookies.delete('wallet_session');
+    
+    return response;
   }
-});
+}
 
 export const config = {
   matcher: [

@@ -1,13 +1,7 @@
-import { redirect } from 'next/navigation';
-import { currentUser } from '@clerk/nextjs/server';
 import TransactionHistoryClient from './transaction-history-client';
 
-export default async function TransactionHistoryPage() {
-  const user = await currentUser();
-
-  if (!user) {
-    redirect('/sign-in');
-  }
-
+export default function TransactionHistoryPage() {
+  // Authentication is handled by middleware
+  // User will be redirected to /sign-in if not authenticated
   return <TransactionHistoryClient />;
 }

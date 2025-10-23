@@ -1,57 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
-import { UserService } from '@/lib/services/user-service';
+import { getCurrentUser } from '@/lib/auth-helpers';
 import { PortfolioService } from '@/lib/services/portfolio-service';
 import { STRATEGIES } from '@/lib/contracts/addresses';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if Clerk is configured
-    if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
-      console.warn('Clerk not configured, returning mock data');
-      // Return mock data when Clerk is not configured
-      return NextResponse.json({
-        hasPortfolio: true,
-        portfolio: {
-          id: 'mock-portfolio',
-          strategy: 'medium',
-          totalValue: 10000,
-          allocations: {
-            WBTC: 25,
-            BIG_CAPS: 35,
-            MID_LOWER_CAPS: 25,
-            STABLECOINS: 15,
-          },
-          lastRebalanced: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          isActive: true,
-          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      });
-    }
-
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user from database, create if doesn't exist
-    let dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      // Create user if they don't exist (fallback for cases where webhook didn't fire)
-      dbUser = await UserService.createUser({
-        clerk_id: user.id,
-        email: user.emailAddresses[0]?.emailAddress || '',
-      });
-      
-      if (!dbUser) {
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
-      }
-    }
-
     // Get user's portfolio
-    const portfolio = await PortfolioService.getUserPortfolio(dbUser.id);
+    const portfolio = await PortfolioService.getUserPortfolio(user.id);
 
     if (!portfolio) {
       return NextResponse.json({ 
@@ -90,7 +51,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -102,22 +63,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid strategy' }, { status: 400 });
     }
 
-    // Get user from database, create if doesn't exist
-    let dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      // Create user if they don't exist (fallback for cases where webhook didn't fire)
-      dbUser = await UserService.createUser({
-        clerk_id: user.id,
-        email: user.emailAddresses[0]?.emailAddress || '',
-      });
-      
-      if (!dbUser) {
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
-      }
-    }
-
     // Check if user already has an active portfolio
-    const existingPortfolio = await PortfolioService.getUserPortfolio(dbUser.id);
+    const existingPortfolio = await PortfolioService.getUserPortfolio(user.id);
     if (existingPortfolio) {
       return NextResponse.json({ error: 'User already has an active portfolio' }, { status: 400 });
     }
@@ -127,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // Create new portfolio
     const portfolio = await PortfolioService.createPortfolio({
-      user_id: dbUser.id,
+      user_id: user.id,
       strategy: strategy as 'low' | 'medium' | 'high',
       wbtc_allocation: strategyConfig.allocations.WBTC,
       big_caps_allocation: strategyConfig.allocations.BIG_CAPS,
@@ -168,7 +115,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -176,14 +123,8 @@ export async function PUT(request: NextRequest) {
 
     const { strategy, allocations } = await request.json();
 
-    // Get user from database
-    const dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
     // Get user's portfolio
-    const portfolio = await PortfolioService.getUserPortfolio(dbUser.id);
+    const portfolio = await PortfolioService.getUserPortfolio(user.id);
     if (!portfolio) {
       return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 });
     }

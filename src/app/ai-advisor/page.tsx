@@ -1,13 +1,7 @@
-import { redirect } from 'next/navigation';
-import { currentUser } from '@clerk/nextjs/server';
 import AdvisorClient from './advisor-client';
 
-export default async function AIAdvisorPage() {
-  const user = await currentUser();
-
-  if (!user) {
-    redirect('/sign-in');
-  }
-
+export default function AIAdvisorPage() {
+  // Authentication is handled by middleware
+  // User will be redirected to /sign-in if not authenticated
   return <AdvisorClient />;
 }

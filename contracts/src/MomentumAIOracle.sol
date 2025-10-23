@@ -44,6 +44,8 @@ contract MomentumAIOracle is
     event PortfolioUpdated(address indexed user, RiskLevel newRiskLevel, uint256 timestamp);
     event RebalanceTriggered(address indexed user, uint256 timestamp);
     event MarketDataUpdated(uint256 btcPrice, uint256 ethPrice, uint256 volatility, uint256 timestamp);
+    event TokenPriceUpdated(string indexed symbol, uint256 price, uint256 timestamp);
+    event MultipleTokenPricesUpdated(uint256 count, uint256 timestamp);
 
     // State variables
     MomentumPortfolioManager public portfolioManager;
@@ -66,9 +68,13 @@ contract MomentumAIOracle is
     mapping(address => bool) public isActiveUser;
     
     // Market data sources
-    mapping(string => uint256) public priceFeeds; // token => price
+    mapping(string => uint256) public priceFeeds; // token => price (8 decimals for consistency)
     mapping(string => uint256) public lastPriceUpdate; // token => timestamp
     uint256 public lastAutomatedUpdate;
+    
+    // Supported token symbols (for enumeration)
+    string[] public supportedTokens;
+    mapping(string => bool) public isTokenSupported;
 
     // Modifiers
     modifier onlyPortfolioManager() {
@@ -117,6 +123,15 @@ contract MomentumAIOracle is
             volatility: 25, // 25%
             timestamp: block.timestamp
         });
+        
+        // Initialize lastAutomatedUpdate to allow immediate first update
+        // Use unchecked to handle block.timestamp < PRICE_UPDATE_INTERVAL
+        unchecked {
+            if (block.timestamp > PRICE_UPDATE_INTERVAL) {
+                lastAutomatedUpdate = block.timestamp - PRICE_UPDATE_INTERVAL;
+            }
+            // else lastAutomatedUpdate remains 0, which allows immediate updates
+        }
     }
 
     /**
@@ -194,6 +209,110 @@ contract MomentumAIOracle is
     }
 
     /**
+     * @dev Update multiple token prices from AI Oracle Bot
+     * @param symbols Array of token symbols (e.g., ["WBTC", "USDC", "AERO"])
+     * @param prices Array of prices (8 decimals for all tokens for consistency)
+     */
+    function updateTokenPrices(
+        string[] calldata symbols,
+        uint256[] calldata prices
+    ) external whenNotPaused {
+        require(
+            msg.sender == aiOracleBot || msg.sender == owner(),
+            "MomentumAIOracle: Only AI Oracle Bot or owner can update"
+        );
+        require(symbols.length == prices.length, "MomentumAIOracle: Arrays length mismatch");
+        require(symbols.length > 0, "MomentumAIOracle: Empty arrays");
+        require(symbols.length <= 50, "MomentumAIOracle: Too many tokens");
+
+        for (uint256 i = 0; i < symbols.length; i++) {
+            require(prices[i] > 0, "MomentumAIOracle: Invalid price");
+            
+            priceFeeds[symbols[i]] = prices[i];
+            lastPriceUpdate[symbols[i]] = block.timestamp;
+            
+            // Add to supported tokens if not already there
+            if (!isTokenSupported[symbols[i]]) {
+                supportedTokens.push(symbols[i]);
+                isTokenSupported[symbols[i]] = true;
+            }
+            
+            emit TokenPriceUpdated(symbols[i], prices[i], block.timestamp);
+        }
+
+        emit MultipleTokenPricesUpdated(symbols.length, block.timestamp);
+    }
+
+    /**
+     * @dev Update market data and token prices in one call (most efficient)
+     * @param btcPrice BTC price in 8 decimals
+     * @param ethPrice ETH price in 8 decimals
+     * @param marketCap Total market cap
+     * @param volatility Market volatility percentage
+     * @param tokenSymbols Array of additional token symbols
+     * @param tokenPrices Array of additional token prices (8 decimals)
+     */
+    function updateMarketDataAndPrices(
+        uint256 btcPrice,
+        uint256 ethPrice,
+        uint256 marketCap,
+        uint256 volatility,
+        string[] calldata tokenSymbols,
+        uint256[] calldata tokenPrices
+    ) external whenNotPaused {
+        require(
+            msg.sender == aiOracleBot || msg.sender == owner(),
+            "MomentumAIOracle: Only AI Oracle Bot or owner can update"
+        );
+        require(
+            block.timestamp >= lastAutomatedUpdate + PRICE_UPDATE_INTERVAL,
+            "MomentumAIOracle: Price update too frequent"
+        );
+        require(btcPrice > 0 && ethPrice > 0, "MomentumAIOracle: Invalid price data");
+        require(tokenSymbols.length == tokenPrices.length, "MomentumAIOracle: Arrays length mismatch");
+
+        // Update main market data
+        latestMarketData = MarketData({
+            btcPrice: btcPrice,
+            ethPrice: ethPrice,
+            marketCap: marketCap,
+            volatility: volatility,
+            timestamp: block.timestamp
+        });
+
+        // Update BTC and ETH in price feeds
+        priceFeeds["BTC"] = btcPrice;
+        priceFeeds["ETH"] = ethPrice;
+        lastPriceUpdate["BTC"] = block.timestamp;
+        lastPriceUpdate["ETH"] = block.timestamp;
+
+        // Update additional token prices
+        for (uint256 i = 0; i < tokenSymbols.length; i++) {
+            if (tokenPrices[i] > 0) {
+                priceFeeds[tokenSymbols[i]] = tokenPrices[i];
+                lastPriceUpdate[tokenSymbols[i]] = block.timestamp;
+                
+                if (!isTokenSupported[tokenSymbols[i]]) {
+                    supportedTokens.push(tokenSymbols[i]);
+                    isTokenSupported[tokenSymbols[i]] = true;
+                }
+                
+                emit TokenPriceUpdated(tokenSymbols[i], tokenPrices[i], block.timestamp);
+            }
+        }
+
+        lastAutomatedUpdate = block.timestamp;
+
+        emit MarketDataUpdated(btcPrice, ethPrice, volatility, block.timestamp);
+        if (tokenSymbols.length > 0) {
+            emit MultipleTokenPricesUpdated(tokenSymbols.length, block.timestamp);
+        }
+
+        // Analyze market condition
+        _analyzeMarketCondition();
+    }
+
+    /**
      * @dev Analyze market condition based on current data
      */
     function _analyzeMarketCondition() internal {
@@ -203,10 +322,17 @@ contract MomentumAIOracle is
             currentMarketCondition = newCondition;
             emit MarketConditionUpdated(newCondition, block.timestamp);
             
-            // Update portfolio manager
-            portfolioManager.updateMarketCondition(
-                MomentumPortfolioManager.MarketCondition(uint256(newCondition))
-            );
+            // Update portfolio manager if set and configured
+            if (address(portfolioManager) != address(0)) {
+                try portfolioManager.updateMarketCondition(
+                    MomentumPortfolioManager.MarketCondition(uint256(newCondition))
+                ) {
+                    // Success - market condition updated
+                } catch {
+                    // Ignore errors from portfolio manager
+                    // This allows the oracle to function independently
+                }
+            }
         }
     }
 
@@ -458,6 +584,62 @@ contract MomentumAIOracle is
     }
 
     /**
+     * @dev Get price for a specific token
+     * @param symbol Token symbol (e.g., "WBTC", "USDC")
+     * @return price Token price (8 decimals)
+     * @return timestamp Last update timestamp
+     */
+    function getTokenPrice(string memory symbol) external view returns (uint256 price, uint256 timestamp) {
+        return (priceFeeds[symbol], lastPriceUpdate[symbol]);
+    }
+
+    /**
+     * @dev Get prices for multiple tokens
+     * @param symbols Array of token symbols
+     * @return prices Array of token prices (8 decimals)
+     * @return timestamps Array of last update timestamps
+     */
+    function getTokenPrices(string[] memory symbols) external view returns (
+        uint256[] memory prices,
+        uint256[] memory timestamps
+    ) {
+        prices = new uint256[](symbols.length);
+        timestamps = new uint256[](symbols.length);
+        
+        for (uint256 i = 0; i < symbols.length; i++) {
+            prices[i] = priceFeeds[symbols[i]];
+            timestamps[i] = lastPriceUpdate[symbols[i]];
+        }
+        
+        return (prices, timestamps);
+    }
+
+    /**
+     * @dev Get all supported token symbols
+     * @return symbols Array of supported token symbols
+     */
+    function getSupportedTokens() external view returns (string[] memory) {
+        return supportedTokens;
+    }
+
+    /**
+     * @dev Get count of supported tokens
+     * @return count Number of supported tokens
+     */
+    function getSupportedTokensCount() external view returns (uint256) {
+        return supportedTokens.length;
+    }
+
+    /**
+     * @dev Check if a token is supported
+     * @param symbol Token symbol
+     * @return supported True if token is supported
+     */
+    function isTokenPriceSupported(string memory symbol) external view returns (bool) {
+        return isTokenSupported[symbol];
+    }
+
+    /**
      * @dev Authorize upgrade (only owner)
      * @param newImplementation The new implementation address
      */
@@ -468,6 +650,6 @@ contract MomentumAIOracle is
      * @return The version string
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.1";
     }
 }

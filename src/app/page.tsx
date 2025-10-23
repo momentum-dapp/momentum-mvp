@@ -1,5 +1,4 @@
 "use client";
-import { useUser } from '@clerk/nextjs';
 import Link from 'next/link'
 import { motion } from "framer-motion"
 import { ScrollProgress } from '@/components/home/scroll-progress'
@@ -14,16 +13,6 @@ import FAQ from '@/components/home/faq'
 import CtaSection from '@/components/home/cta-section'
 
 export default function Home() {
-  const { user, isLoaded } = useUser();
-
-  // Show loading state while checking authentication
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
-      </div>
-    );
-  }
 
   return (
     <>

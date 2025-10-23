@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
-import { UserService } from '@/lib/services/user-service';
+import { getCurrentUser } from '@/lib/auth-helpers';
 import { TransactionService } from '@/lib/services/transaction-service';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,22 +16,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const asset = searchParams.get('asset');
 
-    // Get user from database, create if doesn't exist
-    let dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      // Create user if they don't exist (fallback for cases where webhook didn't fire)
-      dbUser = await UserService.createUser({
-        clerk_id: user.id,
-        email: user.emailAddresses[0]?.emailAddress || '',
-      });
-      
-      if (!dbUser) {
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
-      }
-    }
-
     // Get user's transactions
-    const transactions = await TransactionService.getUserTransactions(dbUser.id, limit, offset);
+    const transactions = await TransactionService.getUserTransactions(user.id, limit, offset);
 
     // Filter by type and asset if specified
     let filteredTransactions = transactions;

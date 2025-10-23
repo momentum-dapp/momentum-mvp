@@ -1,19 +1,44 @@
 "use client"
 
-
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Sun, Moon, Book, Github } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { Sun, Moon, Book, Github, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
 import { motion } from "framer-motion"
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import { useAccount, useDisconnect } from 'wagmi'
+import { useWalletAuth } from '@/contexts/WalletAuthContext'
 
 const menuItems: { name: string; href: string }[] = [];
 
 export default function Navigation() {
     const { theme, setTheme } = useTheme()
     const pathname = usePathname()
+    const router = useRouter()
+    const { address, isConnected } = useAccount()
+    const { disconnect } = useDisconnect()
+    const { isAuthenticated } = useWalletAuth()
     const buttonBaseStyles = "rounded-full hover:rounded-full";
+
+    const handleSignOut = async () => {
+        try {
+            // Delete session
+            await fetch('/api/auth/session', {
+                method: 'DELETE',
+            });
+            
+            // Disconnect wallet
+            disconnect();
+            
+            // Redirect to home
+            router.push('/');
+        } catch (error) {
+            console.error('Error signing out:', error);
+        }
+    };
+
+    const formatAddress = (addr: string) => {
+        return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    };
 
     return (
         <header>
@@ -27,12 +52,8 @@ export default function Navigation() {
                             <Link href="/dashboard" aria-label="home" className="flex items-center space-x-2">
                                 <div className="text-2xl font-bold text-white flex items-center">
                                     <img src="/momentum-logos.png" alt="" className="w-16 h-12 object-contain" />
-                                    {/* <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                                        MomentumFI
-                                    </span> */}
                                 </div>
                             </Link>
-                            {/* Menu mobile button bisa ditambah di sini jika ingin */}
                             <div className="hidden lg:block items-center justify-between">
                                 <ul className="flex gap-8 text-sm">
                                     {menuItems.map((item, index) => {
@@ -79,17 +100,33 @@ export default function Navigation() {
                             >
                                 <Moon className="w-5 h-5 text-gray-300" />
                             </button>
-                            {/* <Connect /> */}
-                            <SignedOut>
-                                <SignInButton>
-                                    <button className={`${buttonBaseStyles} bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold px-6 py-3 transition-all duration-300 ease-in-out shadow hover:from-purple-700 hover:to-pink-700 hover:shadow-lg`}>
-                                        Sign In
+                            
+                            {/* Wallet Connection Status */}
+                            {isAuthenticated && isConnected && address ? (
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-gray-700/50">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                            <span className="text-sm font-mono text-gray-300">
+                                                {formatAddress(address)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleSignOut}
+                                        className="rounded-full p-2 hover:bg-red-500/20 transition-colors"
+                                        aria-label="Sign Out"
+                                    >
+                                        <LogOut className="w-5 h-5 text-gray-300 hover:text-red-400" />
                                     </button>
-                                </SignInButton>
-                            </SignedOut>
-                            <SignedIn>
-                                <UserButton />
-                            </SignedIn>
+                                </div>
+                            ) : (
+                                <Link href="/sign-in">
+                                    <button className={`${buttonBaseStyles} bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold px-6 py-3 transition-all duration-300 ease-in-out shadow hover:from-purple-700 hover:to-pink-700 hover:shadow-lg`}>
+                                        Connect Wallet
+                                    </button>
+                                </Link>
+                            )}
                         </div>
                     </motion.div>
                 </div>

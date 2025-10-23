@@ -33,7 +33,7 @@ contract MomentumVaultTest is Test {
         );
         
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        vault = MomentumVault(address(proxy));
+        vault = MomentumVault(payable(address(proxy)));
         
         // Whitelist token
         vm.prank(owner);
