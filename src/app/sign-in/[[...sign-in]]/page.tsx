@@ -2,16 +2,19 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAccount, useConnect } from 'wagmi';
+import { useAccount, useConnect, useSwitchChain } from 'wagmi';
 import { injected } from 'wagmi/connectors';
+import { baseSepolia } from 'wagmi/chains';
 import { WalletIcon } from '@heroicons/react/24/outline';
 
 export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { connect, isPending } = useConnect();
+  const { switchChain } = useSwitchChain();
   const [isSettingUp, setIsSettingUp] = useState(false);
+  const [error, setError] = useState<string>('');
   
   // Use ref to track if we've already processed this connection
   const processedAddressRef = useRef<string | null>(null);
@@ -25,6 +28,23 @@ export default function SignInPage() {
           processedAddressRef.current = address; // Mark as processed
           
           console.log('Setting up session for address:', address);
+          console.log('Current chain:', chain?.id, 'Required chain:', baseSepolia.id);
+          
+          // Check if we need to switch networks
+          if (chain?.id !== baseSepolia.id) {
+            console.log('Switching to Base Sepolia...');
+            try {
+              await switchChain({ chainId: baseSepolia.id });
+              // Wait a bit for the chain switch to complete
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (switchError) {
+              console.error('Failed to switch network:', switchError);
+              setError('Please switch to Base Sepolia network in your wallet');
+              setIsSettingUp(false);
+              processedAddressRef.current = null;
+              return;
+            }
+          }
           
           // Create session
           const response = await fetch('/api/auth/session', {
@@ -67,7 +87,7 @@ export default function SignInPage() {
     }
 
     handleConnection();
-  }, [isConnected, address, router, searchParams, isSettingUp]);
+  }, [isConnected, address, router, searchParams, isSettingUp, chain, switchChain]);
 
   const handleConnect = () => {
     connect({ connector: injected() });
@@ -129,6 +149,14 @@ export default function SignInPage() {
               </p>
             </div>
 
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4">
+                <p className="text-sm text-red-200 text-center">
+                  {error}
+                </p>
+              </div>
+            )}
+
             <button
               onClick={handleConnect}
               disabled={isPending}
@@ -179,10 +207,16 @@ export default function SignInPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">Powered by Base</p>
-                  <p className="text-xs text-gray-400">Low fees, fast transactions</p>
+                  <p className="text-sm font-medium text-white">Powered by Base Sepolia</p>
+                  <p className="text-xs text-gray-400">Testnet with low fees, fast transactions</p>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <p className="text-xs text-blue-200 text-center">
+                💡 <strong>Network Required:</strong> This app will automatically switch your wallet to Base Sepolia testnet after connecting.
+              </p>
             </div>
 
             <p className="text-xs text-gray-500 text-center pt-4">

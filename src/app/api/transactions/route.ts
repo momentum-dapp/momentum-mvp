@@ -76,23 +76,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid transaction type' }, { status: 400 });
     }
 
-    // Get user from database, create if doesn't exist
-    let dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      // Create user if they don't exist (fallback for cases where webhook didn't fire)
-      dbUser = await UserService.createUser({
-        clerk_id: user.id,
-        email: user.emailAddresses[0]?.emailAddress || '',
-      });
-      
-      if (!dbUser) {
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
-      }
-    }
-
+    // User is already from database (getCurrentUser returns db user)
     // Create transaction record
     const transaction = await TransactionService.createTransaction({
-      user_id: dbUser.id,
+      user_id: user.id,
       portfolio_id: portfolioId || null,
       type: type as 'deposit' | 'withdrawal' | 'rebalance' | 'swap',
       amount: parseFloat(amount),
@@ -120,9 +107,12 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Transaction creation API error:', error);
+    console.error('Error creating transaction:', error);
     return NextResponse.json(
-      { error: 'Failed to create transaction' },
+      { 
+        error: 'Failed to create transaction',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

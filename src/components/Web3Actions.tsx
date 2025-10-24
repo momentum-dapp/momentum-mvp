@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount, useBalance, useWalletClient, usePublicClient } from 'wagmi';
+import { useState, useEffect, useMemo } from 'react';
+import { useAccount, useBalance, useWalletClient, useConfig, useSwitchChain } from 'wagmi';
 import { 
   ArrowDownIcon, 
   ArrowUpIcon,
@@ -11,7 +11,8 @@ import { formatCurrency, formatTokenAmount } from '@/lib/utils';
 import { formatUnits, type Address } from 'viem';
 import { baseSepolia } from 'wagmi/chains';
 import { VaultService, getTokenBySymbol } from '@/lib/web3/vault-service';
-import { ASSETS } from '@/lib/contracts/addresses';
+import { ASSETS, CONTRACT_ADDRESSES } from '@/lib/contracts/addresses';
+import { getPublicClient, getWalletClient } from '@wagmi/core';
 
 interface Web3ActionsProps {
   portfolio: {
@@ -54,9 +55,14 @@ const TOKENS = {
 };
 
 export default function Web3Actions({ portfolio, onTransactionComplete }: Web3ActionsProps) {
-  const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient({ chainId: baseSepolia.id });
-  const publicClient = usePublicClient({ chainId: baseSepolia.id });
+  const { address, isConnected, status, chain } = useAccount();
+  const config = useConfig();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+  
+  // Get public client - this is always available from config
+  const publicClient = useMemo(() => {
+    return getPublicClient(config, { chainId: baseSepolia.id });
+  }, [config]);
   
   const [activeAction, setActiveAction] = useState<'deposit' | 'withdraw' | null>(null);
   const [amount, setAmount] = useState('');
@@ -65,18 +71,21 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
   const [transactionStatus, setTransactionStatus] = useState<string>('');
   const [transactionError, setTransactionError] = useState<string>('');
   const [walletAssets, setWalletAssets] = useState<TokenAsset[]>([]);
+  const [vaultAssets, setVaultAssets] = useState<TokenAsset[]>([]);
   const [loadingBalances, setLoadingBalances] = useState(false);
-  const [vaultService, setVaultService] = useState<VaultService | null>(null);
+  const [loadingVaultBalances, setLoadingVaultBalances] = useState(false);
+  const [vaultBalancesRefreshKey, setVaultBalancesRefreshKey] = useState(0);
 
-  // Initialize VaultService when wallet client is available
-  useEffect(() => {
-    if (walletClient && publicClient) {
-      console.log('✅ VaultService initialized with wallet client');
-      setVaultService(new VaultService(walletClient, publicClient));
-    } else {
-      console.log('⏳ Waiting for wallet client...', { walletClient: !!walletClient, publicClient: !!publicClient });
-    }
-  }, [walletClient, publicClient]);
+  // Don't pre-initialize vault service - create it on-demand when needed
+  // This avoids issues with useWalletClient not returning data reliably
+  console.log('🔍 Web3Actions state:', { 
+    isConnected,
+    hasAddress: !!address,
+    address: address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'none',
+    hasPublicClient: !!publicClient,
+    chainId: chain?.id,
+    isCorrectChain: chain?.id === baseSepolia.id,
+  });
 
   // Fetch ETH balance using wagmi hook
   const { data: ethBalance } = useBalance({
@@ -187,11 +196,119 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
     fetchWalletBalances();
   }, [address, isConnected, ethBalance]);
 
+  // Fetch vault token balances
+  useEffect(() => {
+    const fetchVaultBalances = async () => {
+      if (!address || !isConnected || !publicClient) {
+        console.log('🔍 Skipping vault balance fetch:', { address, isConnected, hasPublicClient: !!publicClient });
+        setVaultAssets([]);
+        return;
+      }
+
+      console.log('🔍 Starting vault balance fetch for address:', address);
+      setLoadingVaultBalances(true);
+      try {
+        const balances: TokenAsset[] = [];
+
+        // Fetch vault balances for all tokens
+        for (const [symbol, token] of Object.entries(TOKENS)) {
+          try {
+            // Skip if it's a placeholder address
+            if (token.address === '0x0000000000000000000000000000000000000000') {
+              console.log(`⏭️ Skipping ${symbol} (placeholder address)`);
+              continue;
+            }
+
+            console.log(`🔍 Fetching vault balance for ${symbol} (${token.address})`);
+
+            // Use RPC call to get vault balance
+            const rpcUrl = `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
+            
+            // Encode getUserBalance call: getUserBalance(address user, address token)
+            // Function signature: getUserBalance(address,address) -> 0x6805d6ad
+            const userAddressHex = address.toLowerCase().slice(2).padStart(64, '0');
+            const tokenAddressHex = token.address.toLowerCase().slice(2).padStart(64, '0');
+            const data = `0x6805d6ad${userAddressHex}${tokenAddressHex}`;
+            
+            console.log(`📤 RPC Call for ${symbol}:`, {
+              to: CONTRACT_ADDRESSES.VAULT,
+              data: data,
+              userAddressHex,
+              tokenAddressHex,
+            });
+
+            const response = await fetch(rpcUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'eth_call',
+                params: [
+                  {
+                    to: CONTRACT_ADDRESSES.VAULT.toLowerCase(),
+                    data: data,
+                  },
+                  'latest',
+                ],
+              }),
+            });
+
+            const result = await response.json();
+            console.log(`📥 RPC Response for ${symbol}:`, result);
+            
+            if (result.result) {
+              const balance = BigInt(result.result);
+              const formattedBalance = formatUnits(balance, token.decimals);
+              
+              console.log(`💰 ${symbol} vault balance:`, {
+                raw: result.result,
+                balance: balance.toString(),
+                formatted: formattedBalance,
+              });
+              
+              // Only add tokens with non-zero balance
+              if (balance > BigInt(0)) {
+                console.log(`✅ Adding ${symbol} to vault assets`);
+                balances.push({
+                  symbol,
+                  name: token.name,
+                  balance: formattedBalance,
+                  address: token.address,
+                  decimals: token.decimals,
+                });
+              } else {
+                console.log(`⏭️ Skipping ${symbol} (zero balance)`);
+              }
+            } else {
+              console.log(`❌ No result for ${symbol}:`, result);
+            }
+          } catch (error) {
+            console.error(`❌ Error fetching vault balance for ${symbol}:`, error);
+          }
+        }
+
+        console.log('✅ Final vault assets:', balances);
+        setVaultAssets(balances);
+      } catch (error) {
+        console.error('❌ Error fetching vault balances:', error);
+      } finally {
+        setLoadingVaultBalances(false);
+      }
+    };
+
+    // Only fetch vault balances when withdraw action is active
+    if (activeAction === 'withdraw') {
+      console.log('🔄 Withdraw action active, fetching vault balances...');
+      fetchVaultBalances();
+    }
+  }, [address, isConnected, publicClient, activeAction, vaultBalancesRefreshKey]);
+
   // Get assets to display based on action type
   const getDisplayAssets = (): TokenAsset[] => {
     if (activeAction === 'withdraw') {
-      // Only show USDC for withdrawals
-      return walletAssets.filter(asset => asset.symbol === 'USDC');
+      // Show vault assets for withdrawals
+      return vaultAssets;
     }
     // Show all wallet assets with balance > 0 for deposits
     return walletAssets.filter(asset => parseFloat(asset.balance) > 0);
@@ -199,17 +316,21 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
 
   // Reset selected asset when action changes or when assets are loaded
   useEffect(() => {
-    if (activeAction && walletAssets.length > 0) {
-      const displayAssets = getDisplayAssets();
+    if (activeAction) {
+      const displayAssets = activeAction === 'withdraw' ? vaultAssets : walletAssets.filter(asset => parseFloat(asset.balance) > 0);
+      console.log('🔄 Selected asset update:', { activeAction, displayAssetsCount: displayAssets.length, displayAssets });
       if (displayAssets.length > 0) {
-        // For withdraw, default to USDC; for deposit, default to first available asset
+        // For withdraw, default to first vault asset; for deposit, default to first available wallet asset
         setSelectedAsset(displayAssets[0].symbol);
+        console.log('✅ Set selected asset to:', displayAssets[0].symbol);
+      } else {
+        console.log('⚠️ No assets available for', activeAction);
       }
     }
-  }, [activeAction, walletAssets]);
+  }, [activeAction, walletAssets, vaultAssets]);
 
   const handleTransaction = async (type: 'deposit' | 'withdraw') => {
-    if (!amount || !selectedAsset || !address || !vaultService) {
+    if (!amount || !selectedAsset || !address) {
       setTransactionError('Missing required parameters');
       return;
     }
@@ -219,6 +340,40 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
     setTransactionStatus('');
     
     try {
+      // Check if we're on the correct chain
+      if (chain?.id !== baseSepolia.id) {
+        setTransactionStatus('Switching to Base Sepolia network...');
+        try {
+          await switchChain({ chainId: baseSepolia.id });
+          // Wait a bit for the chain switch to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (switchError) {
+          throw new Error(
+            `Please switch to Base Sepolia network in your wallet. Current chain: ${chain?.name || 'Unknown'} (ID: ${chain?.id}), Required: Base Sepolia (ID: ${baseSepolia.id})`
+          );
+        }
+      }
+
+      // Get wallet client on-demand (this works reliably unlike the hook)
+      setTransactionStatus('Connecting to wallet...');
+      const walletClient = await getWalletClient(config, { 
+        chainId: baseSepolia.id,
+        account: address 
+      });
+      
+      if (!walletClient) {
+        throw new Error('Failed to get wallet client. Please ensure your wallet is connected.');
+      }
+
+      if (!publicClient) {
+        throw new Error('Public client not available');
+      }
+
+      console.log('✅ Got wallet client for transaction');
+      
+      // Create VaultService instance for this transaction
+      const vaultService = new VaultService(walletClient, publicClient);
+      
       const tokenInfo = getTokenBySymbol(selectedAsset);
       if (!tokenInfo) {
         throw new Error(`Token ${selectedAsset} not found`);
@@ -268,6 +423,11 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
 
       // Record transaction in database
       setTransactionStatus('Recording transaction...');
+      
+      // Validate portfolio ID is a valid UUID before sending
+      // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(portfolio.id);
+      
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: {
@@ -279,13 +439,14 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
           asset: selectedAsset,
           txHash: txHash,
           approvalHash: approvalHash,
-          portfolioId: portfolio.id,
+          portfolioId: isValidUUID ? portfolio.id : null,
           status: 'completed',
         }),
       });
 
       if (!response.ok) {
-        console.error('Failed to record transaction in database');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to record transaction in database:', errorData);
         // Don't throw - transaction succeeded on-chain
       }
 
@@ -317,7 +478,9 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => setActiveAction('deposit')}
-            className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            disabled={!isConnected || !address}
+            className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!isConnected ? 'Connect your wallet first' : ''}
           >
             <ArrowDownIcon className="h-4 w-4 mr-2" />
             Deposit Funds
@@ -325,7 +488,9 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
           
           <button
             onClick={() => setActiveAction('withdraw')}
-            className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            disabled={!isConnected || !address}
+            className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!isConnected ? 'Connect your wallet first' : ''}
           >
             <ArrowUpIcon className="h-4 w-4 mr-2" />
             Withdraw Funds
@@ -345,13 +510,35 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
             </button>
           </div>
 
+          {/* Wrong Network Warning */}
+          {chain?.id !== baseSepolia.id && (
+            <div className="bg-yellow-500/20 p-3 rounded-md border border-yellow-500/30">
+              <p className="text-sm text-yellow-200">
+                <strong>⚠️ Wrong Network:</strong> You're on {chain?.name || 'Unknown'} (ID: {chain?.id}). 
+                This app requires Base Sepolia testnet. Click the button below to switch networks automatically.
+              </p>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Select Asset
-            </label>
-            {loadingBalances ? (
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-200">
+                Select Asset
+              </label>
+              {activeAction === 'withdraw' && (
+                <button
+                  onClick={() => setVaultBalancesRefreshKey(prev => prev + 1)}
+                  disabled={loadingVaultBalances}
+                  className="text-xs text-blue-400 hover:text-blue-300 disabled:text-gray-500"
+                  title="Refresh vault balances"
+                >
+                  {loadingVaultBalances ? '🔄 Refreshing...' : '🔄 Refresh'}
+                </button>
+              )}
+            </div>
+            {(activeAction === 'withdraw' ? loadingVaultBalances : loadingBalances) ? (
               <div className="w-full px-3 py-2 border border-white/20 rounded-md bg-white/10 text-gray-400">
-                Loading balances...
+                Loading {activeAction === 'withdraw' ? 'vault' : 'wallet'} balances...
               </div>
             ) : (
               <select
@@ -363,7 +550,7 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
                 {getDisplayAssets().length === 0 ? (
                   <option value="">
                     {activeAction === 'withdraw' 
-                      ? 'No USDC available to withdraw' 
+                      ? 'No tokens in vault to withdraw' 
                       : 'No assets with balance to deposit'}
                   </option>
                 ) : (
@@ -403,24 +590,29 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
           <div className="flex space-x-3">
             <button
               onClick={() => handleTransaction(activeAction)}
-              disabled={!amount || isProcessing || !vaultService || !address}
+              disabled={!amount || isProcessing || !isConnected || !address || isSwitchingChain}
               className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
                 activeAction === 'deposit'
                   ? 'bg-green-600 hover:bg-green-700 text-white'
                   : 'bg-red-600 hover:bg-red-700 text-white'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
-              title={!vaultService ? 'Initializing vault service...' : !amount ? 'Enter an amount' : ''}
+              title={
+                !isConnected 
+                  ? 'Connect your wallet first' 
+                  : chain?.id !== baseSepolia.id
+                  ? 'Wrong network - will switch to Base Sepolia'
+                  : !amount 
+                  ? 'Enter an amount' 
+                  : ''
+              }
             >
-              {isProcessing ? (
+              {isProcessing || isSwitchingChain ? (
                 <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Processing...
+                  {isSwitchingChain ? 'Switching Network...' : 'Processing...'}
                 </div>
-              ) : !vaultService ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Initializing...
-                </div>
+              ) : chain?.id !== baseSepolia.id ? (
+                `Switch to Base Sepolia & ${activeAction === 'deposit' ? 'Deposit' : 'Withdraw'}`
               ) : (
                 `${activeAction === 'deposit' ? 'Deposit' : 'Withdraw'} ${selectedAsset}`
               )}
