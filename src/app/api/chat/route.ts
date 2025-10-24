@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
+import { getCurrentUser } from '@/lib/auth-helpers';
 import { generateChatResponse, ChatMessage } from '@/lib/ai/openai';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Clerk is configured
-    if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
-      console.warn('Clerk not configured, returning mock response');
-      // Return mock response when Clerk is not configured
-      return NextResponse.json({ 
-        response: "I'm a mock AI assistant. Please configure your environment variables to enable full functionality.",
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -41,7 +31,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const response = await generateChatResponse(chatMessages, user.id);
+    const response = await generateChatResponse(chatMessages, user.wallet_address || user.id);
 
     return NextResponse.json({ 
       response,

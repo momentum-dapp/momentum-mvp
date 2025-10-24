@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   ChartBarIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
+import { 
+  MOCK_PORTFOLIO_BASE_VALUE, 
+  CHART_TARGET_GROWTH, 
+  CHART_VOLATILITY, 
+  CHART_MIN_VALUE_RATIO 
+} from '@/constants/portfolio';
 
 interface PerformanceData {
   date: string;
@@ -23,41 +29,33 @@ export default function PerformanceChart({ data }: PerformanceChartProps) {
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d'>('7d');
 
-  useEffect(() => {
-    if (data) {
-      setPerformanceData(data);
-      setLoading(false);
-    } else {
-      fetchPerformanceData();
-    }
-  }, [data, timeframe]);
-
-  const fetchPerformanceData = async () => {
+  const fetchPerformanceData = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Generate mock performance data based on timeframe
+      // Generate mock performance data based on timeframe - FOR DEMO PURPOSES
       const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
       const mockData: PerformanceData[] = [];
-      const baseValue = 10000;
+      
+      // Use centralized constants
+      const targetGrowth = CHART_TARGET_GROWTH[timeframe];
+      const dailyTrend = targetGrowth / (days + 1);
       
       for (let i = days; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
         
         // Simulate realistic portfolio performance with some volatility
-        const volatility = 0.02; // 2% daily volatility
-        const trend = timeframe === '7d' ? 0.001 : timeframe === '30d' ? 0.0005 : 0.0002; // Slight upward trend
-        const randomChange = (Math.random() - 0.5) * volatility;
-        const dailyChange = trend + randomChange;
+        const randomChange = (Math.random() - 0.5) * CHART_VOLATILITY;
+        const dailyChange = dailyTrend + randomChange;
         
         const value = i === days 
-          ? baseValue 
+          ? MOCK_PORTFOLIO_BASE_VALUE 
           : mockData[mockData.length - 1].value * (1 + dailyChange);
         
         mockData.push({
           date: date.toISOString().split('T')[0],
-          value,
+          value: Math.max(value, MOCK_PORTFOLIO_BASE_VALUE * CHART_MIN_VALUE_RATIO),
           change: dailyChange * 100
         });
       }
@@ -68,27 +66,50 @@ export default function PerformanceChart({ data }: PerformanceChartProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeframe]);
+
+  useEffect(() => {
+    if (data && data.length > 0) {
+      // Check if the data has meaningful values (not all zeros)
+      const hasValidData = data.some(d => d.value > 0);
+      if (hasValidData) {
+        setPerformanceData(data);
+        setLoading(false);
+      } else {
+        // If data is all zeros or invalid, generate mock data
+        fetchPerformanceData();
+      }
+    } else {
+      // No data passed, generate mock data for demo
+      fetchPerformanceData();
+    }
+  }, [data, fetchPerformanceData]);
 
   const getTotalReturn = () => {
     if (performanceData.length < 2) return 0;
     const firstValue = performanceData[0].value;
     const lastValue = performanceData[performanceData.length - 1].value;
-    return ((lastValue - firstValue) / firstValue) * 100;
+    if (!firstValue || firstValue === 0 || isNaN(firstValue) || isNaN(lastValue)) return 0;
+    const result = ((lastValue - firstValue) / firstValue) * 100;
+    return isNaN(result) || !isFinite(result) ? 0 : result;
   };
 
   const getMaxValue = () => {
-    return Math.max(...performanceData.map(d => d.value));
+    if (performanceData.length === 0) return 0;
+    const values = performanceData.map(d => d.value).filter(v => !isNaN(v) && isFinite(v));
+    return values.length > 0 ? Math.max(...values) : 0;
   };
 
   const getMinValue = () => {
-    return Math.min(...performanceData.map(d => d.value));
+    if (performanceData.length === 0) return 0;
+    const values = performanceData.map(d => d.value).filter(v => !isNaN(v) && isFinite(v));
+    return values.length > 0 ? Math.min(...values) : 0;
   };
 
   const totalReturn = getTotalReturn();
   const maxValue = getMaxValue();
   const minValue = getMinValue();
-  const range = maxValue - minValue;
+  const range = maxValue - minValue || 1; // Prevent division by zero
 
   if (loading) {
     return (
@@ -101,12 +122,21 @@ export default function PerformanceChart({ data }: PerformanceChartProps) {
     );
   }
 
+  const isUsingMockData = !data || data.length === 0 || !data.some(d => d.value > 0);
+
   return (
     <div className="bg-white rounded-lg shadow-sm">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Portfolio Performance</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-gray-900">Portfolio Performance</h2>
+              {isUsingMockData && (
+                <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                  Demo Data
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-500">Value over time</p>
           </div>
           

@@ -1,9 +1,9 @@
 -- Create users table
 CREATE TABLE users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  clerk_id TEXT UNIQUE NOT NULL,
-  email TEXT NOT NULL,
-  wallet_address TEXT,
+  wallet_address TEXT UNIQUE NOT NULL,
+  email TEXT,
+  clerk_id TEXT UNIQUE, -- Legacy support, can be removed later
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -58,7 +58,8 @@ CREATE TABLE market_data (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_users_clerk_id ON users(clerk_id);
+CREATE INDEX idx_users_wallet_address ON users(wallet_address);
+CREATE INDEX idx_users_clerk_id ON users(clerk_id); -- Legacy support
 CREATE INDEX idx_portfolios_user_id ON portfolios(user_id);
 CREATE INDEX idx_portfolios_is_active ON portfolios(is_active);
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);
@@ -87,7 +88,35 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
-CREATE POLICY "Users can only see their own data" ON users FOR ALL USING (clerk_id = auth.jwt() ->> 'sub');
-CREATE POLICY "Users can only see their own portfolios" ON portfolios FOR ALL USING (user_id IN (SELECT id FROM users WHERE clerk_id = auth.jwt() ->> 'sub'));
-CREATE POLICY "Users can only see their own transactions" ON transactions FOR ALL USING (user_id IN (SELECT id FROM users WHERE clerk_id = auth.jwt() ->> 'sub'));
-CREATE POLICY "Users can only see their own chat messages" ON chat_messages FOR ALL USING (user_id IN (SELECT id FROM users WHERE clerk_id = auth.jwt() ->> 'sub'));
+-- Note: These policies need to be updated based on your authentication implementation
+-- Using wallet_address from session/JWT claims
+CREATE POLICY "Users can only see their own data" ON users FOR ALL USING (
+  wallet_address = COALESCE(
+    auth.jwt() ->> 'wallet_address',
+    auth.jwt() ->> 'sub' -- Fallback for legacy clerk_id
+  )
+);
+CREATE POLICY "Users can only see their own portfolios" ON portfolios FOR ALL USING (
+  user_id IN (
+    SELECT id FROM users WHERE wallet_address = COALESCE(
+      auth.jwt() ->> 'wallet_address',
+      auth.jwt() ->> 'sub'
+    )
+  )
+);
+CREATE POLICY "Users can only see their own transactions" ON transactions FOR ALL USING (
+  user_id IN (
+    SELECT id FROM users WHERE wallet_address = COALESCE(
+      auth.jwt() ->> 'wallet_address',
+      auth.jwt() ->> 'sub'
+    )
+  )
+);
+CREATE POLICY "Users can only see their own chat messages" ON chat_messages FOR ALL USING (
+  user_id IN (
+    SELECT id FROM users WHERE wallet_address = COALESCE(
+      auth.jwt() ->> 'wallet_address',
+      auth.jwt() ->> 'sub'
+    )
+  )
+);

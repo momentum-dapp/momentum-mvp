@@ -3,18 +3,5 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
-  "devCommand": "npm run dev",
-  "env": {
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk_publishable_key",
-    "CLERK_SECRET_KEY": "@clerk_secret_key",
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
-    "OPENAI_API_KEY": "@openai_api_key",
-    "NEXT_PUBLIC_ALCHEMY_API_KEY": "@alchemy_api_key",
-    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID": "@walletconnect_project_id",
-    "NEXT_PUBLIC_ZERODEV_PROJECT_ID": "@zerodev_project_id",
-    "ZERODEV_PRIVATE_KEY": "@zerodev_private_key",
-    "CLERK_WEBHOOK_SECRET": "@clerk_webhook_secret"
-  }
+  "devCommand": "npm run dev"
 }

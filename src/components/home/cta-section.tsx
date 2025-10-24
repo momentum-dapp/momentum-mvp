@@ -14,7 +14,7 @@ export default function CtaSection() {
                         Join thousands of users who trust MomentumFi for intelligent DeFi portfolio management
                     </p>
                     <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                        <Link href="/dashboard">
+                        <Link href="/generate">
                             <Button
                                 size="lg"
                                 className="bg-white text-blue-600 hover:bg-gray-50 shadow-xl text-lg px-8 py-4 h-auto font-semibold"

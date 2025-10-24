@@ -44,10 +44,16 @@ contract MomentumPortfolioManager is
     event RebalanceExecuted(address indexed user, uint256 timestamp);
     event MarketConditionChanged(MarketCondition newCondition, uint256 timestamp);
     event AIRecommendationGenerated(address indexed user, RiskLevel recommendedRisk, uint256 timestamp);
+    event UserCustomAllocationsSet(address indexed user, uint256 wbtc, uint256 bigCaps, uint256 midLowerCaps, uint256 stablecoins);
+    event UserCustomAllocationsCleared(address indexed user);
 
     // State variables
     mapping(address => Portfolio) public userPortfolios;
     mapping(RiskLevel => Strategy) public strategies;
+    
+    // Per-user custom target allocations
+    mapping(address => mapping(AssetType => uint256)) public userTargetAllocations;
+    mapping(address => bool) public hasCustomAllocation;
     
     MomentumVault public vault;
     MarketCondition public currentMarketCondition;
@@ -83,7 +89,7 @@ contract MomentumPortfolioManager is
      */
     function initialize(
         address _owner,
-        address _vault,
+        address payable _vault,
         address _aiOracle
     ) public initializer {
         require(_owner != address(0), "MomentumPortfolioManager: Invalid owner");
@@ -206,16 +212,101 @@ contract MomentumPortfolioManager is
             portfolio.allocations[AssetType.MID_LOWER_CAPS] = 0;
             portfolio.allocations[AssetType.STABLECOINS] = 100;
         } else {
-            // Restore original strategy allocations
-            Strategy storage strategy = strategies[portfolio.riskLevel];
-            portfolio.allocations[AssetType.WBTC] = strategy.allocations[AssetType.WBTC];
-            portfolio.allocations[AssetType.BIG_CAPS] = strategy.allocations[AssetType.BIG_CAPS];
-            portfolio.allocations[AssetType.MID_LOWER_CAPS] = strategy.allocations[AssetType.MID_LOWER_CAPS];
-            portfolio.allocations[AssetType.STABLECOINS] = strategy.allocations[AssetType.STABLECOINS];
+            // Get target allocations (custom if set, else risk template)
+            (uint256 wbtc, uint256 bigCaps, uint256 midLowerCaps, uint256 stablecoins) = getTargetAllocations(user);
+            portfolio.allocations[AssetType.WBTC] = wbtc;
+            portfolio.allocations[AssetType.BIG_CAPS] = bigCaps;
+            portfolio.allocations[AssetType.MID_LOWER_CAPS] = midLowerCaps;
+            portfolio.allocations[AssetType.STABLECOINS] = stablecoins;
         }
 
         portfolio.lastRebalanced = block.timestamp;
         emit RebalanceExecuted(user, block.timestamp);
+    }
+
+    /**
+     * @dev Set custom target allocations for a user
+     * @param user The user address
+     * @param wbtc WBTC allocation percentage
+     * @param bigCaps Big caps allocation percentage
+     * @param midLowerCaps Mid/lower caps allocation percentage
+     * @param stablecoins Stablecoins allocation percentage
+     */
+    function setUserCustomAllocations(
+        address user,
+        uint256 wbtc,
+        uint256 bigCaps,
+        uint256 midLowerCaps,
+        uint256 stablecoins
+    ) external whenNotPaused hasPortfolio(user) {
+        require(
+            msg.sender == aiOracle || msg.sender == owner(),
+            "MomentumPortfolioManager: Not authorized"
+        );
+        require(
+            wbtc + bigCaps + midLowerCaps + stablecoins == MAX_ALLOCATION,
+            "MomentumPortfolioManager: Allocations must sum to 100"
+        );
+
+        userTargetAllocations[user][AssetType.WBTC] = wbtc;
+        userTargetAllocations[user][AssetType.BIG_CAPS] = bigCaps;
+        userTargetAllocations[user][AssetType.MID_LOWER_CAPS] = midLowerCaps;
+        userTargetAllocations[user][AssetType.STABLECOINS] = stablecoins;
+        hasCustomAllocation[user] = true;
+
+        emit UserCustomAllocationsSet(user, wbtc, bigCaps, midLowerCaps, stablecoins);
+    }
+
+    /**
+     * @dev Clear custom allocations and revert to risk template
+     * @param user The user address
+     */
+    function clearUserCustomAllocations(address user) external whenNotPaused hasPortfolio(user) {
+        require(
+            msg.sender == aiOracle || msg.sender == owner(),
+            "MomentumPortfolioManager: Not authorized"
+        );
+        
+        hasCustomAllocation[user] = false;
+        
+        // Clear allocations
+        delete userTargetAllocations[user][AssetType.WBTC];
+        delete userTargetAllocations[user][AssetType.BIG_CAPS];
+        delete userTargetAllocations[user][AssetType.MID_LOWER_CAPS];
+        delete userTargetAllocations[user][AssetType.STABLECOINS];
+
+        emit UserCustomAllocationsCleared(user);
+    }
+
+    /**
+     * @dev Get target allocations for a user (custom if set, else risk template)
+     * @param user The user address
+     * @return wbtc WBTC allocation
+     * @return bigCaps Big caps allocation
+     * @return midLowerCaps Mid/lower caps allocation
+     * @return stablecoins Stablecoins allocation
+     */
+    function getTargetAllocations(address user) public view returns (
+        uint256 wbtc,
+        uint256 bigCaps,
+        uint256 midLowerCaps,
+        uint256 stablecoins
+    ) {
+        if (hasCustomAllocation[user]) {
+            // Return custom allocations
+            wbtc = userTargetAllocations[user][AssetType.WBTC];
+            bigCaps = userTargetAllocations[user][AssetType.BIG_CAPS];
+            midLowerCaps = userTargetAllocations[user][AssetType.MID_LOWER_CAPS];
+            stablecoins = userTargetAllocations[user][AssetType.STABLECOINS];
+        } else {
+            // Return risk template allocations
+            Portfolio storage portfolio = userPortfolios[user];
+            Strategy storage strategy = strategies[portfolio.riskLevel];
+            wbtc = strategy.allocations[AssetType.WBTC];
+            bigCaps = strategy.allocations[AssetType.BIG_CAPS];
+            midLowerCaps = strategy.allocations[AssetType.MID_LOWER_CAPS];
+            stablecoins = strategy.allocations[AssetType.STABLECOINS];
+        }
     }
 
     /**
@@ -356,6 +447,6 @@ contract MomentumPortfolioManager is
      * @return The version string
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }

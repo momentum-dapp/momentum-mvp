@@ -8,6 +8,9 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import "./MomentumSwapManager.sol";
+import "./interfaces/IWETH9.sol";
 
 /**
  * @title MomentumVault
@@ -29,6 +32,8 @@ contract MomentumVault is
     event EmergencyWithdrawal(address indexed user, address indexed token, uint256 amount, uint256 timestamp);
     event TokenWhitelisted(address indexed token, bool whitelisted);
     event PortfolioManagerSet(address indexed portfolioManager);
+    event SwapManagerSet(address indexed swapManager);
+    event SwapExecuted(address indexed user, address indexed tokenFrom, address indexed tokenTo, uint256 amountIn, uint256 amountOut);
 
     // State variables
     mapping(address => mapping(address => uint256)) public userBalances; // user => token => balance
@@ -36,6 +41,8 @@ contract MomentumVault is
     mapping(address => uint256) public totalDeposits; // token => total amount
     
     address public portfolioManager;
+    MomentumSwapManager public swapManager;
+    IWETH9 public weth;
     uint256 public constant MAX_TOKENS = 50;
     address[] public supportedTokens;
 
@@ -133,7 +140,151 @@ contract MomentumVault is
     }
 
     /**
+     * @dev Deposit tokens with permit (EIP-2612) - single transaction
+     * @param token The token address to deposit
+     * @param amount The amount to deposit
+     * @param deadline Permit deadline
+     * @param v Permit signature v
+     * @param r Permit signature r
+     * @param s Permit signature s
+     */
+    function depositWithPermit(
+        address token,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external whenNotPaused nonReentrant onlyWhitelistedToken(token) {
+        require(amount > 0, "MomentumVault: Amount must be greater than 0");
+        
+        // Execute permit
+        IERC20Permit(token).permit(msg.sender, address(this), amount, deadline, v, r, s);
+        
+        // Transfer tokens
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        
+        userBalances[msg.sender][token] += amount;
+        totalDeposits[token] += amount;
+        
+        emit Deposit(msg.sender, token, amount, block.timestamp);
+    }
+
+    /**
+     * @dev Deposit ETH and convert to base asset (e.g., USDC) in one transaction
+     * @param minAmountOut Minimum amount of output token (slippage protection)
+     * @param path Swap path from WETH to base asset
+     * @param fee Uniswap pool fee
+     * @param baseAsset The base asset to receive (e.g., USDC)
+     */
+    function depositETH(
+        uint256 minAmountOut,
+        bytes memory path,
+        uint24 fee,
+        address baseAsset
+    ) external payable whenNotPaused nonReentrant onlyWhitelistedToken(baseAsset) {
+        require(msg.value > 0, "MomentumVault: Must send ETH");
+        require(address(swapManager) != address(0), "MomentumVault: Swap manager not set");
+        
+        // Wrap ETH to WETH
+        weth.deposit{value: msg.value}();
+        
+        // Approve swap manager to spend WETH
+        IERC20(address(weth)).safeIncreaseAllowance(address(swapManager), msg.value);
+        
+        // Execute swap through swap manager
+        uint256 amountOut;
+        if (path.length > 0) {
+            // Multi-hop swap
+            amountOut = swapManager.executeSwapMultiHop(
+                path,
+                msg.value,
+                minAmountOut,
+                address(this)
+            );
+        } else {
+            // Single-hop swap
+            amountOut = swapManager.executeSwapSingle(
+                address(weth),
+                baseAsset,
+                msg.value,
+                minAmountOut,
+                fee,
+                address(this)
+            );
+        }
+        
+        // Credit user balance
+        userBalances[msg.sender][baseAsset] += amountOut;
+        totalDeposits[baseAsset] += amountOut;
+        
+        emit Deposit(msg.sender, baseAsset, amountOut, block.timestamp);
+    }
+
+    /**
+     * @dev Execute swap and rebalance for a user (only portfolio manager)
+     * @param user The user address
+     * @param tokenFrom The token to swap from
+     * @param tokenTo The token to swap to
+     * @param amountFrom The amount to swap
+     * @param minAmountOut Minimum amount out (slippage protection)
+     * @param path Swap path (empty for single-hop)
+     * @param fee Uniswap pool fee
+     */
+    function swapAndRebalance(
+        address user,
+        address tokenFrom,
+        address tokenTo,
+        uint256 amountFrom,
+        uint256 minAmountOut,
+        bytes memory path,
+        uint24 fee
+    ) external onlyPortfolioManager whenNotPaused nonReentrant returns (uint256 amountOut) {
+        require(userBalances[user][tokenFrom] >= amountFrom, "MomentumVault: Insufficient balance");
+        require(whitelistedTokens[tokenFrom] && whitelistedTokens[tokenTo], "MomentumVault: Tokens not whitelisted");
+        require(address(swapManager) != address(0), "MomentumVault: Swap manager not set");
+        require(amountFrom > 0, "MomentumVault: Amount must be greater than 0");
+        
+        // Approve swap manager to spend tokens
+        IERC20(tokenFrom).safeIncreaseAllowance(address(swapManager), amountFrom);
+        
+        // Execute swap through swap manager
+        if (path.length > 0) {
+            // Multi-hop swap
+            amountOut = swapManager.executeSwapMultiHop(
+                path,
+                amountFrom,
+                minAmountOut,
+                address(this)
+            );
+        } else {
+            // Single-hop swap
+            amountOut = swapManager.executeSwapSingle(
+                tokenFrom,
+                tokenTo,
+                amountFrom,
+                minAmountOut,
+                fee,
+                address(this)
+            );
+        }
+        
+        // Update user balances with actual amounts
+        userBalances[user][tokenFrom] -= amountFrom;
+        userBalances[user][tokenTo] += amountOut;
+        
+        // Update total deposits
+        totalDeposits[tokenFrom] -= amountFrom;
+        totalDeposits[tokenTo] += amountOut;
+        
+        emit SwapExecuted(user, tokenFrom, tokenTo, amountFrom, amountOut);
+        
+        return amountOut;
+    }
+
+    /**
      * @dev Transfer tokens for rebalancing (only portfolio manager)
+     * DEPRECATED: Use swapAndRebalance instead for actual swaps
      * @param from The user address to transfer from
      * @param tokenFrom The token to transfer from
      * @param tokenTo The token to transfer to
@@ -199,6 +350,25 @@ contract MomentumVault is
     }
 
     /**
+     * @dev Set the swap manager address
+     * @param _swapManager The new swap manager address
+     */
+    function setSwapManager(address payable _swapManager) external onlyOwner {
+        require(_swapManager != address(0), "MomentumVault: Invalid swap manager");
+        swapManager = MomentumSwapManager(_swapManager);
+        emit SwapManagerSet(_swapManager);
+    }
+
+    /**
+     * @dev Set the WETH address
+     * @param _weth The WETH address
+     */
+    function setWETH(address _weth) external onlyOwner {
+        require(_weth != address(0), "MomentumVault: Invalid WETH");
+        weth = IWETH9(_weth);
+    }
+
+    /**
      * @dev Pause the contract
      */
     function pause() external onlyOwner {
@@ -250,6 +420,9 @@ contract MomentumVault is
      * @return The version string
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
+
+    // Allow contract to receive ETH
+    receive() external payable {}
 }

@@ -83,7 +83,7 @@ export default function AdvisorClient() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-4">
               <Link
-                href="/dashboard"
+                href="/generate"
                 className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
               >
                 <ArrowLeftIcon className="w-6 h-6" />

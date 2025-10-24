@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowDownIcon, 
   ArrowUpIcon,
@@ -50,11 +50,7 @@ export default function TransactionHistoryClient() {
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [filters, currentPage]);
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -284,7 +280,11 @@ export default function TransactionHistoryClient() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, currentPage, searchTerm]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   const getTransactionIcon = (type: string, status: string) => {
     if (status === 'pending') {

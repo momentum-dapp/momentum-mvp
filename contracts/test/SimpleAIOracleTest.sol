@@ -28,7 +28,7 @@ contract SimpleAIOracleTest is Test {
             address(0x123) // temporary address
         );
         ERC1967Proxy vaultProxy = new ERC1967Proxy(address(vaultImpl), vaultInitData);
-        vault = MomentumVault(address(vaultProxy));
+        vault = MomentumVault(payable(address(vaultProxy)));
         
         // Deploy portfolio manager proxy
         bytes memory portfolioManagerInitData = abi.encodeWithSelector(
@@ -70,6 +70,9 @@ contract SimpleAIOracleTest is Test {
         uint256 marketCap = 1200000000000;
         uint256 volatility = 15;
         
+        // Wait for price update interval (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
+        
         // Call automated update from AI Oracle Bot (simulated by owner)
         vm.prank(owner);
         aiOracle.updateMarketDataFromBot(btcPrice, ethPrice, marketCap, volatility);
@@ -101,6 +104,9 @@ contract SimpleAIOracleTest is Test {
         uint256 ethPrice = 2000 * 1e8;  // Price drop
         uint256 marketCap = 800000000000;
         uint256 volatility = 35; // High volatility
+        
+        // Wait for price update interval (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
         
         vm.prank(owner);
         aiOracle.updateMarketDataFromBot(btcPrice, ethPrice, marketCap, volatility);

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
-import { UserService } from '@/lib/services/user-service';
+import { getCurrentUser } from '@/lib/auth-helpers';
 import { TransactionService } from '@/lib/services/transaction-service';
+import { UserService } from '@/lib/services/user-service';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,22 +17,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const asset = searchParams.get('asset');
 
-    // Get user from database, create if doesn't exist
-    let dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      // Create user if they don't exist (fallback for cases where webhook didn't fire)
-      dbUser = await UserService.createUser({
-        clerk_id: user.id,
-        email: user.emailAddresses[0]?.emailAddress || '',
-      });
-      
-      if (!dbUser) {
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
-      }
-    }
-
     // Get user's transactions
-    const transactions = await TransactionService.getUserTransactions(dbUser.id, limit, offset);
+    const transactions = await TransactionService.getUserTransactions(user.id, limit, offset);
 
     // Filter by type and asset if specified
     let filteredTransactions = transactions;
@@ -72,13 +58,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { type, amount, asset, txHash, portfolioId } = await request.json();
+    const { type, amount, asset, txHash, approvalHash, portfolioId, status } = await request.json();
 
     if (!type || !amount || !asset || !txHash) {
       return NextResponse.json({ 
@@ -90,29 +76,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid transaction type' }, { status: 400 });
     }
 
-    // Get user from database, create if doesn't exist
-    let dbUser = await UserService.getUserByClerkId(user.id);
-    if (!dbUser) {
-      // Create user if they don't exist (fallback for cases where webhook didn't fire)
-      dbUser = await UserService.createUser({
-        clerk_id: user.id,
-        email: user.emailAddresses[0]?.emailAddress || '',
-      });
-      
-      if (!dbUser) {
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
-      }
-    }
-
+    // User is already from database (getCurrentUser returns db user)
     // Create transaction record
     const transaction = await TransactionService.createTransaction({
-      user_id: dbUser.id,
+      user_id: user.id,
       portfolio_id: portfolioId || null,
       type: type as 'deposit' | 'withdrawal' | 'rebalance' | 'swap',
       amount: parseFloat(amount),
       asset,
       tx_hash: txHash,
-      status: 'pending',
+      status: status || 'completed', // Default to completed for confirmed on-chain txs
     });
 
     if (!transaction) {
@@ -134,9 +107,12 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Transaction creation API error:', error);
+    console.error('Error creating transaction:', error);
     return NextResponse.json(
-      { error: 'Failed to create transaction' },
+      { 
+        error: 'Failed to create transaction',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

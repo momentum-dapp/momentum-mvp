@@ -29,7 +29,7 @@ contract MomentumAIOracleTest is Test {
             address(0x123) // temporary address
         );
         ERC1967Proxy vaultProxy = new ERC1967Proxy(address(vaultImpl), vaultInitData);
-        vault = MomentumVault(address(vaultProxy));
+        vault = MomentumVault(payable(address(vaultProxy)));
         
         // Deploy portfolio manager proxy
         bytes memory portfolioManagerInitData = abi.encodeWithSelector(
@@ -70,6 +70,9 @@ contract MomentumAIOracleTest is Test {
         uint256 ethPrice = 4000 * 1e8;  // $4,000
         uint256 marketCap = 1200000000000;
         uint256 volatility = 15;
+        
+        // Wait for price update interval (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
         
         // Call automated update from AI Oracle Bot (simulated by owner)
         vm.prank(owner);
@@ -138,6 +141,9 @@ contract MomentumAIOracleTest is Test {
         vm.prank(owner);
         aiOracle.updateMarketData(40000 * 1e8, 2000 * 1e8, 800000000000, 35); // High volatility
         
+        // Wait for rebalance cooldown (1 hour)
+        vm.warp(block.timestamp + 1 hours + 1);
+        
         // Trigger rebalance
         vm.prank(owner);
         aiOracle.triggerRebalance(user1);
@@ -156,13 +162,13 @@ contract MomentumAIOracleTest is Test {
         
         // Test bullish condition
         vm.prank(owner);
-        aiOracle.updateMarketData(55000 * 1e8, 3300 * 1e8, 1100000000000, 15);
+        aiOracle.updateMarketData(56000 * 1e8, 3300 * 1e8, 1100000000000, 15);
         
         assertTrue(aiOracle.currentMarketCondition() == MomentumAIOracle.MarketCondition.BULLISH);
         
         // Test neutral condition
         vm.prank(owner);
-        aiOracle.updateMarketData(50000 * 1e8, 3000 * 1e8, 1000000000000, 25);
+        aiOracle.updateMarketData(51000 * 1e8, 3000 * 1e8, 1000000000000, 25);
         
         assertTrue(aiOracle.currentMarketCondition() == MomentumAIOracle.MarketCondition.NEUTRAL);
     }
@@ -171,6 +177,9 @@ contract MomentumAIOracleTest is Test {
         // Create portfolio
         vm.prank(owner);
         aiOracle.createPortfolio(user1, MomentumAIOracle.RiskLevel.MEDIUM);
+        
+        // Wait for initial rebalance cooldown
+        vm.warp(block.timestamp + 1 hours + 1);
         
         // First rebalance should work
         vm.prank(owner);
