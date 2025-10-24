@@ -7,24 +7,50 @@ type UserUpdate = Database['public']['Tables']['users']['Update'];
 
 export class UserService {
   /**
-   * Create a new user in the database
+   * Create or get a user by wallet address
+   * Uses PostgreSQL's INSERT ... ON CONFLICT to handle race conditions atomically
+   * This is the ONLY reliable way to prevent duplicates with concurrent requests
    */
   static async createUser(userData: UserInsert): Promise<User | null> {
     try {
+      // Normalize wallet address to lowercase before storing
+      const normalizedData = {
+        ...userData,
+        wallet_address: userData.wallet_address?.toLowerCase(),
+      };
+      
+      console.log('[UserService] createUser called for:', normalizedData.wallet_address);
+      
+      // Use INSERT ... ON CONFLICT (upsert) to atomically handle duplicates
+      // This is handled entirely by PostgreSQL - no race conditions possible
       const { data, error } = await (supabaseAdmin as any)
         .from('users')
-        .insert(userData)
+        .upsert(
+          normalizedData,
+          { 
+            onConflict: 'wallet_address',
+            // When conflict occurs, don't update anything, just return the existing row
+            ignoreDuplicates: false
+          }
+        )
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating user:', error);
+        console.error('[UserService] Upsert error:', error);
+        console.error('[UserService] Error details:', JSON.stringify(error, null, 2));
         return null;
       }
 
+      if (!data) {
+        console.error('[UserService] No data returned from upsert');
+        return null;
+      }
+
+      console.log('[UserService] Upsert successful for user:', data.id);
       return data;
     } catch (error) {
-      console.error('Unexpected error creating user:', error);
+      console.error('[UserService] Unexpected error in createUser:', error);
       return null;
     }
   }
@@ -34,24 +60,36 @@ export class UserService {
    */
   static async getUserByWalletAddress(walletAddress: string): Promise<User | null> {
     try {
+      // Normalize wallet address to lowercase for case-insensitive comparison
+      const normalizedAddress = walletAddress.toLowerCase();
+      console.log('[UserService] Querying for wallet:', normalizedAddress);
+      
       const { data, error } = await supabaseAdmin
         .from('users')
         .select('*')
-        .eq('wallet_address', walletAddress)
+        .eq('wallet_address', normalizedAddress)
         .single();
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // User not found
+          // User not found (this is expected for new users)
+          console.log('[UserService] User not found in database for:', normalizedAddress);
           return null;
         }
-        console.error('Error fetching user:', error);
+        console.error('[UserService] Error fetching user:', error);
         return null;
       }
 
-      return data;
+      if (!data) {
+        console.log('[UserService] No data returned for:', normalizedAddress);
+        return null;
+      }
+
+      const user = data as User;
+      console.log('[UserService] Found user:', user.id);
+      return user;
     } catch (error) {
-      console.error('Unexpected error fetching user:', error);
+      console.error('[UserService] Unexpected error fetching user:', error);
       return null;
     }
   }
@@ -88,10 +126,13 @@ export class UserService {
    */
   static async updateUser(walletAddress: string, updates: UserUpdate): Promise<User | null> {
     try {
+      // Normalize wallet address to lowercase for case-insensitive comparison
+      const normalizedAddress = walletAddress.toLowerCase();
+      
       const { data, error } = await (supabaseAdmin as any)
         .from('users')
         .update(updates)
-        .eq('wallet_address', walletAddress)
+        .eq('wallet_address', normalizedAddress)
         .select()
         .single();
 
@@ -154,10 +195,13 @@ export class UserService {
    */
   static async deleteUser(walletAddress: string): Promise<boolean> {
     try {
+      // Normalize wallet address to lowercase for case-insensitive comparison
+      const normalizedAddress = walletAddress.toLowerCase();
+      
       const { error } = await supabaseAdmin
         .from('users')
         .delete()
-        .eq('wallet_address', walletAddress);
+        .eq('wallet_address', normalizedAddress);
 
       if (error) {
         console.error('Error deleting user:', error);

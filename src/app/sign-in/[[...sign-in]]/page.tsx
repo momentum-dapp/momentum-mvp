@@ -48,8 +48,8 @@ export default function SignInPage() {
             // Small delay to ensure session is set
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            // Redirect to intended page or dashboard
-            const redirect = searchParams.get('redirect') || '/dashboard';
+            // Redirect to intended page or generate
+            const redirect = searchParams.get('redirect') || '/generate';
             console.log('Redirecting to:', redirect);
             router.push(redirect);
             router.refresh(); // Force refresh to update auth state

@@ -4,25 +4,25 @@ export interface Database {
       users: {
         Row: {
           id: string;
-          clerk_id: string;
-          email: string;
-          wallet_address: string | null;
+          clerk_id: string | null;
+          email: string | null;
+          wallet_address: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          clerk_id: string;
-          email: string;
-          wallet_address?: string | null;
+          clerk_id?: string | null;
+          email?: string | null;
+          wallet_address: string;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          clerk_id?: string;
-          email?: string;
-          wallet_address?: string | null;
+          clerk_id?: string | null;
+          email?: string | null;
+          wallet_address?: string;
           created_at?: string;
           updated_at?: string;
         };

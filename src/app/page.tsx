@@ -106,7 +106,7 @@ export default function Home() {
               className="relative"
             >
 
-              <Link href={"/dashboard"} className="block">
+              <Link href={"/generate"} className="block">
                 <DashboardPreview />
               </Link>
             </motion.div> */}

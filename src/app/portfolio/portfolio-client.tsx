@@ -16,7 +16,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
 import PerformanceChart from '@/components/PerformanceChart';
-import WalletDisplay from '@/components/WalletDisplay';
 import EmergencyRebalance from '@/components/EmergencyRebalance';
 import AIAdvisor from '@/components/AIAdvisor';
 import Web3Actions from '@/components/Web3Actions';
@@ -276,7 +275,7 @@ export default function PortfolioClient() {
             <h1 className="text-3xl font-bold text-white mb-4">No Portfolio Found</h1>
             <p className="text-gray-200 text-lg mb-8">You don&apos;t have an active portfolio yet.</p>
             <Link
-              href="/dashboard"
+              href="/generate"
               className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
             >
               Create Portfolio
@@ -326,7 +325,6 @@ export default function PortfolioClient() {
             <nav className="flex space-x-1">
               {[
                 { id: 'overview', name: 'Overview', icon: ChartPieIcon },
-                { id: 'ai-advisor', name: 'AI Advisor', icon: SparklesIcon },
                 { id: 'actions', name: 'Fund Actions', icon: ArrowsUpDownIcon },
                 { id: 'history', name: 'Transactions', icon: HistoryIcon },
               ].map((tab) => (
@@ -408,8 +406,6 @@ export default function PortfolioClient() {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Wallet Display */}
-              <WalletDisplay />
 
               {/* Wallet Balance */}
               <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
@@ -497,24 +493,6 @@ export default function PortfolioClient() {
               {/* Emergency Rebalance */}
               <EmergencyRebalance onRebalanceComplete={fetchPortfolioData} />
             </div>
-          </div>
-        )}
-
-        {/* AI Advisor Tab */}
-        {activeTab === 'ai-advisor' && (
-          <div className="pt-4">
-            <AIAdvisor 
-              currentPortfolio={portfolio ? {
-                id: portfolio.id,
-                strategy: portfolio.strategy,
-                totalValue: portfolio.totalValue,
-                allocations: portfolio.allocations
-              } : null}
-              onStrategySelected={(strategy) => {
-                // Refresh portfolio data after strategy change
-                fetchPortfolioData();
-              }}
-            />
           </div>
         )}
 

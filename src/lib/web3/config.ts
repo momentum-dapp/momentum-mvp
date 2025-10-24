@@ -1,10 +1,10 @@
 import { createConfig, http } from 'wagmi'
 import { base, baseSepolia } from 'wagmi/chains'
-import { metaMask } from 'wagmi/connectors'
+import { injected } from 'wagmi/connectors'
 import { createStorage } from 'wagmi'
 
 export const wagmiConfig = createConfig({
-  connectors: [metaMask()],
+  connectors: [injected()],
   chains: [baseSepolia, base],
   transports: {
     [baseSepolia.id]: http(`https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),

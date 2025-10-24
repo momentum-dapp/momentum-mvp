@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-helpers';
 import { TransactionService } from '@/lib/services/transaction-service';
+import { UserService } from '@/lib/services/user-service';
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,13 +58,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
+    const user = await getCurrentUser(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { type, amount, asset, txHash, portfolioId } = await request.json();
+    const { type, amount, asset, txHash, approvalHash, portfolioId, status } = await request.json();
 
     if (!type || !amount || !asset || !txHash) {
       return NextResponse.json({ 
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       amount: parseFloat(amount),
       asset,
       tx_hash: txHash,
-      status: 'pending',
+      status: status || 'completed', // Default to completed for confirmed on-chain txs
     });
 
     if (!transaction) {

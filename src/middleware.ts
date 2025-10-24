@@ -41,9 +41,12 @@ export async function middleware(request: NextRequest) {
       throw new Error('Invalid session');
     }
 
+    // Normalize wallet address to lowercase for consistency
+    const normalizedAddress = sessionData.walletAddress.toLowerCase();
+
     // Add wallet address to request headers for API routes
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-wallet-address', sessionData.walletAddress);
+    requestHeaders.set('x-wallet-address', normalizedAddress);
 
     return NextResponse.next({
       request: {

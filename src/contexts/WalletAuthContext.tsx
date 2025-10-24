@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect, useAccountEffect } from 'wagmi';
 
 interface User {
   id: string;
@@ -21,7 +21,7 @@ interface WalletAuthContextType {
 const WalletAuthContext = createContext<WalletAuthContextType | undefined>(undefined);
 
 export function WalletAuthProvider({ children }: { children: ReactNode }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, status } = useAccount();
   const { disconnect } = useDisconnect();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,14 +29,65 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
   // Track if we've already fetched for this address to prevent duplicate calls
   const fetchedAddressRef = useRef<string | null>(null);
   const isFetchingRef = useRef(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Use useAccountEffect to handle account changes properly
+  useAccountEffect({
+    onConnect(data) {
+      console.log('✅ Wallet connected:', data.address);
+      // Clear any reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    },
+    onDisconnect() {
+      console.log('❌ Wallet disconnected');
+      setUser(null);
+      fetchedAddressRef.current = null;
+      setIsLoading(false);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    },
+  });
+
+  // Handle reconnection timeout
+  useEffect(() => {
+    if (status === 'connecting' || status === 'reconnecting') {
+      console.log('⏳ Wagmi status:', status);
+      setIsLoading(true);
+      
+      // Set a timeout to prevent infinite waiting
+      reconnectTimeoutRef.current = setTimeout(() => {
+        if (status === 'connecting' || status === 'reconnecting') {
+          console.log('⚠️ Reconnection timeout - stopping wait');
+          setIsLoading(false);
+        }
+      }, 2000); // 2 second timeout for reconnection
+      
+      return () => {
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+      };
+    }
+  }, [status]);
 
   // Fetch user data when wallet is connected
   useEffect(() => {
     async function fetchUser() {
+      // Don't proceed if still connecting/reconnecting
+      if (status === 'connecting' || status === 'reconnecting') {
+        return;
+      }
+
       // If wallet is disconnected, clear user
       if (!address || !isConnected) {
         if (user !== null) {
-          console.log('Wallet disconnected, clearing user state');
+          console.log('Clearing user state - no wallet connected');
           setUser(null);
         }
         setIsLoading(false);
@@ -46,6 +97,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
 
       // Skip if we're already fetching or have already fetched for this address
       if (isFetchingRef.current || fetchedAddressRef.current === address) {
+        setIsLoading(false);
         return;
       }
 
@@ -53,7 +105,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
         isFetchingRef.current = true;
         setIsLoading(true);
         
-        console.log('Fetching user for address:', address);
+        console.log('📡 Fetching user for address:', address);
         
         // Create or get user from database
         const createResponse = await fetch('/api/auth/user', {
@@ -78,13 +130,13 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ walletAddress: address }),
           });
           
-          console.log('User session created successfully');
+          console.log('✅ User session created successfully');
         } else {
-          console.error('Failed to create/fetch user');
+          console.error('❌ Failed to create/fetch user');
           setUser(null);
         }
       } catch (error) {
-        console.error('Error fetching user:', error);
+        console.error('❌ Error fetching user:', error);
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -93,7 +145,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
     }
 
     fetchUser();
-  }, [address, isConnected]);
+  }, [address, isConnected, status, user]);
 
   const signIn = async () => {
     // Wallet connection is handled by wagmi/Web3Provider

@@ -8,7 +8,10 @@ import { motion } from "framer-motion"
 import { useAccount, useDisconnect } from 'wagmi'
 import { useWalletAuth } from '@/contexts/WalletAuthContext'
 
-const menuItems: { name: string; href: string }[] = [];
+const menuItems: { name: string; href: string }[] = [
+    { name: "Generate", href: "/generate" },
+    { name: "Portfolio", href: "/portfolio" }
+];
 
 export default function Navigation() {
     const { theme, setTheme } = useTheme()
@@ -52,7 +55,7 @@ export default function Navigation() {
                         className="relative flex flex-wrap items-center justify-between gap-6 py-2 duration-200 lg:gap-0"
                     >
                         <div className="flex w-full items-center justify-between gap-12 lg:w-auto">
-                            <Link href="/dashboard" aria-label="home" className="flex items-center space-x-2">
+                            <Link href="/generate" aria-label="home" className="flex items-center space-x-2">
                                 <div className="text-2xl font-bold text-white flex items-center">
                                     <img src="/momentum-logos.png" alt="" className="w-16 h-12 object-contain" />
                                 </div>

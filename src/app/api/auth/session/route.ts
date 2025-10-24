@@ -34,19 +34,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Wallet address required' }, { status: 400 });
     }
 
+    // Normalize wallet address to lowercase for case-insensitive comparison
+    const normalizedAddress = walletAddress.toLowerCase();
+
     // Validate Ethereum address format
-    if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(normalizedAddress)) {
       return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 });
     }
 
     const sessionData = {
-      walletAddress,
+      walletAddress: normalizedAddress,
       createdAt: Date.now(),
     };
 
     const response = NextResponse.json({ 
       authenticated: true,
-      walletAddress 
+      walletAddress: normalizedAddress 
     });
 
     // Set cookie

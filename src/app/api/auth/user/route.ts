@@ -33,23 +33,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Wallet address required' }, { status: 400 });
     }
 
+    // Normalize wallet address to lowercase for case-insensitive comparison
+    const normalizedAddress = walletAddress.toLowerCase();
+
     // Validate Ethereum address format
-    if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(normalizedAddress)) {
       return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 });
     }
 
-    // Check if user already exists
-    let user = await UserService.getUserByWalletAddress(walletAddress);
+    console.log('[AUTH] Looking for user with wallet address:', normalizedAddress);
+
+    // Check if user already exists first
+    let user = await UserService.getUserByWalletAddress(normalizedAddress);
 
     if (!user) {
-      // Create new user
+      // User doesn't exist, create new one
+      console.log('[AUTH] User not found, creating new user with wallet:', normalizedAddress);
       user = await UserService.createUser({
-        wallet_address: walletAddress,
+        wallet_address: normalizedAddress,
       });
 
       if (!user) {
+        console.error('[AUTH] Failed to create user for:', normalizedAddress);
         return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
       }
+      console.log('[AUTH] Created new user:', user.id);
+    } else {
+      console.log('[AUTH] Found existing user:', user.id);
     }
 
     return NextResponse.json({ 
