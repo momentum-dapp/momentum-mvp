@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const mockPrivateKey = process.env.SMART_WALLET_PRIVATE_KEY || '0x1234567890123456789012345678901234567890123456789012345678901234';
     
     const contractResult = await SmartContractService.executeStrategy(
-      dbUser.wallet_address as `0x${string}`,
+      user.wallet_address as `0x${string}`,
       strategy,
       mockPrivateKey
     );

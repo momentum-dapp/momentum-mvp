@@ -1,16 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   ChartPieIcon, 
   ArrowPathIcon,
   CalendarIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
   WalletIcon,
   ClockIcon
 } from '@heroicons/react/24/outline';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
+import { 
+  getStrategyPerformance, 
+  calculateMockedWalletBalance,
+  calculateAssetValue,
+  STRATEGY_NAMES,
+  ASSET_NAMES,
+  ASSET_COLORS 
+} from '@/constants/portfolio';
 
 interface Portfolio {
   id: string;
@@ -33,45 +40,13 @@ interface PortfolioOverviewProps {
 
 export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: PortfolioOverviewProps) {
   const [isRebalancing, setIsRebalancing] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [lastUpdate] = useState<Date>(new Date());
 
-  const strategyNames = {
-    low: 'Conservative Strategy',
-    medium: 'Balanced Strategy',
-    high: 'Aggressive Strategy',
-  };
+  // Get mocked performance data from centralized constants
+  const mockedPerformance = getStrategyPerformance(portfolio.strategy);
 
-  const assetNames = {
-    WBTC: 'Wrapped Bitcoin',
-    BIG_CAPS: 'Major Cryptocurrencies',
-    MID_LOWER_CAPS: 'Emerging Cryptocurrencies',
-    STABLECOINS: 'Stablecoins',
-  };
-
-  const assetColors = {
-    WBTC: 'bg-orange-500',
-    BIG_CAPS: 'bg-blue-500',
-    MID_LOWER_CAPS: 'bg-purple-500',
-    STABLECOINS: 'bg-green-500',
-  };
-
-  useEffect(() => {
-    // Simulate fetching wallet balance
-    const fetchWalletBalance = async () => {
-      try {
-        // This would be a real API call to get wallet balance
-        // For now, we'll simulate it
-        const balance = portfolio.totalValue * (0.95 + Math.random() * 0.1); // Simulate some variation
-        setWalletBalance(balance);
-        setLastUpdate(new Date());
-      } catch (error) {
-        console.error('Error fetching wallet balance:', error);
-      }
-    };
-
-    fetchWalletBalance();
-  }, [portfolio.totalValue]);
+  // Calculate mocked wallet balance using centralized function
+  const walletBalance = calculateMockedWalletBalance(portfolio.totalValue, portfolio.strategy);
 
   const handleRebalance = async () => {
     setIsRebalancing(true);
@@ -91,9 +66,9 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
   };
 
   const allocationData = Object.entries(portfolio.allocations).map(([asset, percentage]) => ({
-    asset: asset as keyof typeof assetNames,
+    asset: asset as keyof typeof ASSET_NAMES,
     percentage: isNaN(percentage) ? 0 : percentage,
-    value: isNaN(portfolio.totalValue) || isNaN(percentage) ? 0 : (portfolio.totalValue * percentage) / 100,
+    value: calculateAssetValue(portfolio.totalValue, percentage),
   }));
 
   return (
@@ -112,9 +87,14 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold">
-              {walletBalance !== null ? formatCurrency(walletBalance) : formatCurrency(0)}
+              {formatCurrency(walletBalance)}
             </p>
-            <p className="text-indigo-100 text-sm">Total Assets</p>
+            <p className="text-indigo-100 text-sm flex items-center justify-end">
+              <span className="mr-2">Total Assets</span>
+              <span className="text-xs bg-green-400/30 text-green-100 px-2 py-1 rounded-full">
+                +{mockedPerformance.performance24h.toFixed(1)}% today
+              </span>
+            </p>
           </div>
         </div>
       </div>
@@ -124,7 +104,7 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {strategyNames[portfolio.strategy]}
+              {STRATEGY_NAMES[portfolio.strategy]}
             </h2>
             <p className="text-sm text-gray-500">
               Last rebalanced {new Date(portfolio.lastRebalanced).toLocaleDateString()}
@@ -158,11 +138,13 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                <ArrowTrendingUpIcon className="h-4 w-4 text-green-600" />
+                  <ArrowTrendingUpIcon className="h-4 w-4 text-green-600" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">24h Change</p>
-                <p className="text-lg font-semibold text-green-600">+2.4%</p>
+                <p className="text-lg font-semibold text-green-600">
+                  +{mockedPerformance.performance24h.toFixed(1)}%
+                </p>
               </div>
             </div>
           </div>
@@ -193,9 +175,9 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
             {allocationData.map(({ asset, percentage }) => (
               <div
                 key={asset}
-                className={assetColors[asset]}
+                className={ASSET_COLORS[asset]}
                 style={{ width: `${percentage}%` }}
-                title={`${assetNames[asset]}: ${percentage}%`}
+                title={`${ASSET_NAMES[asset]}: ${percentage}%`}
               />
             ))}
           </div>
@@ -206,9 +188,9 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
           {allocationData.map(({ asset, percentage, value }) => (
             <div key={asset} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div className="flex items-center">
-                <div className={`w-3 h-3 rounded-full ${assetColors[asset]} mr-3`} />
+                <div className={`w-3 h-3 rounded-full ${ASSET_COLORS[asset]} mr-3`} />
                 <div>
-                  <p className="font-medium text-gray-900">{assetNames[asset]}</p>
+                  <p className="font-medium text-gray-900">{ASSET_NAMES[asset]}</p>
                   <p className="text-sm text-gray-500">{formatPercentage(percentage)}</p>
                 </div>
               </div>
@@ -222,24 +204,68 @@ export default function PortfolioOverview({ portfolio, onPortfolioUpdate }: Port
 
       {/* Performance Metrics */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Performance Overview</h3>
+          <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            Demo Data
+          </span>
+        </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">+12.5%</p>
-            <p className="text-sm text-gray-500">7 Days</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg">
+            <p className="text-2xl font-bold text-green-600">
+              +{mockedPerformance.performance7d.toFixed(1)}%
+            </p>
+            <p className="text-sm text-gray-600 font-medium">7 Days</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">+28.3%</p>
-            <p className="text-sm text-gray-500">30 Days</p>
+          <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg">
+            <p className="text-2xl font-bold text-green-600">
+              +{mockedPerformance.performance30d.toFixed(1)}%
+            </p>
+            <p className="text-sm text-gray-600 font-medium">30 Days</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">+45.7%</p>
-            <p className="text-sm text-gray-500">90 Days</p>
+          <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg">
+            <p className="text-2xl font-bold text-green-600">
+              +{mockedPerformance.performance90d.toFixed(1)}%
+            </p>
+            <p className="text-sm text-gray-600 font-medium">90 Days</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">0.85</p>
-            <p className="text-sm text-gray-500">Sharpe Ratio</p>
+          <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
+            <p className="text-2xl font-bold text-blue-600">
+              {mockedPerformance.sharpeRatio.toFixed(2)}
+            </p>
+            <p className="text-sm text-gray-600 font-medium">Sharpe Ratio</p>
+          </div>
+        </div>
+
+        {/* Additional Performance Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <p className="text-sm text-gray-500">Total Return</p>
+              <p className="text-xl font-bold text-green-600">
+                +{mockedPerformance.totalReturn.toFixed(1)}%
+              </p>
+            </div>
+            <ArrowTrendingUpIcon className="h-8 w-8 text-green-500" />
+          </div>
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <p className="text-sm text-gray-500">Win Rate</p>
+              <p className="text-xl font-bold text-indigo-600">
+                {mockedPerformance.winRate}%
+              </p>
+            </div>
+            <ChartPieIcon className="h-8 w-8 text-indigo-500" />
+          </div>
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <p className="text-sm text-gray-500">Risk Level</p>
+              <p className="text-xl font-bold text-gray-900 capitalize">
+                {portfolio.strategy}
+              </p>
+            </div>
+            <ClockIcon className="h-8 w-8 text-gray-500" />
           </div>
         </div>
       </div>

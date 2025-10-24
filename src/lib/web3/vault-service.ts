@@ -5,6 +5,7 @@ import {
   type WalletClient,
   type PublicClient,
 } from 'viem';
+import { baseSepolia } from 'viem/chains';
 import { VAULT_ABI, ERC20_ABI } from '@/lib/contracts/vaultABI';
 import { CONTRACT_ADDRESSES, ASSETS } from '@/lib/contracts/addresses';
 
@@ -66,6 +67,7 @@ export class VaultService {
         functionName: 'approve',
         args: [this.vaultAddress, amount],
         account: userAddress,
+        chain: baseSepolia,
       });
       
       // Wait for transaction confirmation
@@ -117,6 +119,7 @@ export class VaultService {
         functionName: 'deposit',
         args: [tokenAddress, amountInWei],
         account: userAddress,
+        chain: baseSepolia,
       });
       
       // Wait for deposit confirmation
@@ -165,6 +168,7 @@ export class VaultService {
         functionName: 'withdraw',
         args: [tokenAddress, amountInWei],
         account: userAddress,
+        chain: baseSepolia,
       });
       
       // Wait for withdrawal confirmation

@@ -149,13 +149,7 @@ export default function StrategyPersonalization({ portfolio, onUpdate }: Strateg
                 onChange={(e) => handleSliderChange(key as keyof typeof allocations, parseInt(e.target.value))}
                 disabled={!isEditing}
                 className={`flex-1 h-2 rounded-lg appearance-none cursor-pointer 
-                  ${getAllocationColor(key)} 
                   ${isEditing ? 'opacity-100' : 'opacity-50 cursor-not-allowed'}`}
-                style={{
-                  background: isEditing
-                    ? `linear-gradient(to right, ${getAllocationColor(key).replace('bg-', 'rgb(var(--color-'))} ${value}%, #e5e7eb ${value}%)`
-                    : undefined,
-                }}
               />
             </div>
           </div>

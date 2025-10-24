@@ -514,7 +514,7 @@ export default function Web3Actions({ portfolio, onTransactionComplete }: Web3Ac
           {chain?.id !== baseSepolia.id && (
             <div className="bg-yellow-500/20 p-3 rounded-md border border-yellow-500/30">
               <p className="text-sm text-yellow-200">
-                <strong>⚠️ Wrong Network:</strong> You're on {chain?.name || 'Unknown'} (ID: {chain?.id}). 
+                <strong>⚠️ Wrong Network:</strong> You&apos;re on {chain?.name || 'Unknown'} (ID: {chain?.id}). 
                 This app requires Base Sepolia testnet. Click the button below to switch networks automatically.
               </p>
             </div>

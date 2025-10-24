@@ -21,6 +21,19 @@ import AIAdvisor from '@/components/AIAdvisor';
 import Web3Actions from '@/components/Web3Actions';
 import TransactionHistory from '@/components/TransactionHistory';
 import Link from 'next/link';
+import { 
+  getStrategyPerformance, 
+  calculateMockedWalletBalance,
+  getMockPortfolioAllocations,
+  calculateAssetValue,
+  STRATEGY_NAMES,
+  ASSET_NAMES,
+  ASSET_COLORS,
+  MOCK_PORTFOLIO_BASE_VALUE,
+  CHART_TARGET_GROWTH,
+  CHART_VOLATILITY,
+  CHART_MIN_VALUE_RATIO
+} from '@/constants/portfolio';
 
 interface Portfolio {
   id: string;
@@ -51,26 +64,6 @@ export default function PortfolioClient() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'ai-advisor' | 'actions' | 'history'>('overview');
 
-  const strategyNames = {
-    low: 'Conservative Strategy',
-    medium: 'Balanced Strategy',
-    high: 'Aggressive Strategy',
-  };
-
-  const assetNames = {
-    WBTC: 'Wrapped Bitcoin',
-    BIG_CAPS: 'Major Cryptocurrencies',
-    MID_LOWER_CAPS: 'Emerging Cryptocurrencies',
-    STABLECOINS: 'Stablecoins',
-  };
-
-  const assetColors = {
-    WBTC: 'bg-orange-500',
-    BIG_CAPS: 'bg-blue-500',
-    MID_LOWER_CAPS: 'bg-purple-500',
-    STABLECOINS: 'bg-green-500',
-  };
-
   const fetchPortfolioData = useCallback(async () => {
     try {
       setLoading(true);
@@ -80,11 +73,11 @@ export default function PortfolioClient() {
       const portfolioData = await portfolioResponse.json();
       
       if (portfolioResponse.ok && portfolioData.hasPortfolio) {
-        // Use real portfolio data
+        // Use real portfolio data, but with mocked totalValue for demo
         const realPortfolio: Portfolio = {
           id: portfolioData.portfolio.id,
           strategy: portfolioData.portfolio.strategy,
-          totalValue: portfolioData.portfolio.totalValue,
+          totalValue: portfolioData.portfolio.totalValue > 0 ? portfolioData.portfolio.totalValue : MOCK_PORTFOLIO_BASE_VALUE,
           allocations: portfolioData.portfolio.allocations,
           lastRebalanced: portfolioData.portfolio.lastRebalanced,
           isActive: portfolioData.portfolio.isActive,
@@ -92,34 +85,21 @@ export default function PortfolioClient() {
         
         setPortfolio(realPortfolio);
         
-        // Fetch performance data
-        const performanceResponse = await fetch('/api/portfolio/performance?days=30');
-        const performanceData = await performanceResponse.json();
+        // Use mock performance data for demo
+        setPerformanceData(generateMockPerformanceData(realPortfolio.totalValue, 30));
         
-        if (performanceResponse.ok && performanceData.performance) {
-          setPerformanceData(performanceData.performance);
-        } else {
-          // Fallback to mock performance data
-          setPerformanceData(generateMockPerformanceData(realPortfolio.totalValue, 30));
-        }
-        
-        // Simulate wallet balance (in real app, this would come from Web3)
-        const balance = realPortfolio.totalValue * (0.95 + Math.random() * 0.1);
-        setWalletBalance(balance);
+        // Use centralized wallet balance calculation (in real app, this would come from Web3)
+        setWalletBalance(realPortfolio.totalValue);
         setLastUpdate(new Date());
         
       } else {
         // Fallback to mock data if no real portfolio exists
+        const mockStrategy = 'medium';
         const mockPortfolio: Portfolio = {
           id: 'portfolio-1',
-          strategy: 'medium',
-          totalValue: 12500.75,
-          allocations: {
-            WBTC: 25,
-            BIG_CAPS: 35,
-            MID_LOWER_CAPS: 25,
-            STABLECOINS: 15,
-          },
+          strategy: mockStrategy,
+          totalValue: MOCK_PORTFOLIO_BASE_VALUE,
+          allocations: getMockPortfolioAllocations(mockStrategy),
           lastRebalanced: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
           isActive: true,
         };
@@ -127,9 +107,8 @@ export default function PortfolioClient() {
         setPortfolio(mockPortfolio);
         setPerformanceData(generateMockPerformanceData(mockPortfolio.totalValue, 30));
         
-        // Simulate wallet balance
-        const balance = mockPortfolio.totalValue * (0.95 + Math.random() * 0.1);
-        setWalletBalance(balance);
+        // Use centralized wallet balance calculation
+        setWalletBalance(mockPortfolio.totalValue);
         setLastUpdate(new Date());
       }
       
@@ -137,16 +116,12 @@ export default function PortfolioClient() {
       console.error('Error fetching portfolio data:', error);
       
       // Fallback to mock data on error
+      const mockStrategy = 'medium';
       const mockPortfolio: Portfolio = {
         id: 'portfolio-1',
-        strategy: 'medium',
-        totalValue: 12500.75,
-        allocations: {
-          WBTC: 25,
-          BIG_CAPS: 35,
-          MID_LOWER_CAPS: 25,
-          STABLECOINS: 15,
-        },
+        strategy: mockStrategy,
+        totalValue: MOCK_PORTFOLIO_BASE_VALUE,
+        allocations: getMockPortfolioAllocations(mockStrategy),
         lastRebalanced: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         isActive: true,
       };
@@ -154,9 +129,8 @@ export default function PortfolioClient() {
       setPortfolio(mockPortfolio);
       setPerformanceData(generateMockPerformanceData(mockPortfolio.totalValue, 30));
       
-      // Simulate wallet balance
-      const balance = mockPortfolio.totalValue * (0.95 + Math.random() * 0.1);
-      setWalletBalance(balance);
+      // Use centralized wallet balance calculation
+      setWalletBalance(mockPortfolio.totalValue);
       setLastUpdate(new Date());
     } finally {
       setLoading(false);
@@ -171,22 +145,28 @@ export default function PortfolioClient() {
     const data = [];
     const now = new Date();
     
+    // Use proper initial value or default to base value for demo
+    const baseValue = initialValue > 0 ? initialValue : MOCK_PORTFOLIO_BASE_VALUE;
+    
+    // Get target growth from centralized constants
+    const timeframe = days === 7 ? '7d' : days === 90 ? '90d' : '30d';
+    const targetGrowth = CHART_TARGET_GROWTH[timeframe];
+    const dailyTrend = targetGrowth / (days + 1);
+    
     for (let i = days; i >= 0; i--) {
       const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
       
-      // Generate realistic price movement with some volatility
-      const volatility = 0.02; // 2% daily volatility
-      const trend = 0.001; // Slight upward trend
-      const randomChange = (Math.random() - 0.5) * volatility;
-      const dailyChange = trend + randomChange;
+      // Generate realistic price movement with some volatility - FOR DEMO
+      const randomChange = (Math.random() - 0.5) * CHART_VOLATILITY;
+      const dailyChange = dailyTrend + randomChange;
       
-      const previousValue: number = i === days ? initialValue : data[data.length - 1].value;
+      const previousValue: number = i === days ? baseValue : data[data.length - 1].value;
       const value: number = previousValue * (1 + dailyChange);
       const change: number = i === days ? 0 : previousValue > 0 ? ((value - previousValue) / previousValue) * 100 : 0;
       
       data.push({
         date: date.toISOString().split('T')[0],
-        value: isNaN(value) || !isFinite(value) ? initialValue : Math.round(value * 100) / 100,
+        value: isNaN(value) || !isFinite(value) ? baseValue : Math.max(Math.round(value * 100) / 100, baseValue * CHART_MIN_VALUE_RATIO),
         change: isNaN(change) || !isFinite(change) ? 0 : Math.round(change * 100) / 100,
       });
     }
@@ -287,14 +267,17 @@ export default function PortfolioClient() {
   }
 
   const allocationData = Object.entries(portfolio.allocations).map(([asset, percentage]) => ({
-    asset: asset as keyof typeof assetNames,
+    asset: asset as keyof typeof ASSET_NAMES,
     percentage: isNaN(percentage) ? 0 : percentage,
-    value: isNaN(portfolio.totalValue) || isNaN(percentage) ? 0 : (portfolio.totalValue * percentage) / 100,
+    value: calculateAssetValue(portfolio.totalValue, percentage),
   }));
+
+  // Get mocked performance data from centralized constants
+  const mockedPerformance = getStrategyPerformance(portfolio.strategy);
 
   const totalReturn = performanceData.length > 0 && performanceData[0].value > 0
     ? ((performanceData[performanceData.length - 1].value - performanceData[0].value) / performanceData[0].value) * 100
-    : 0;
+    : mockedPerformance.performance30d; // Fallback to mocked 30-day performance
 
   return (
     <div className="min-h-screen pt-20 pb-8">
@@ -376,9 +359,9 @@ export default function PortfolioClient() {
                     {allocationData.map(({ asset, percentage }) => (
                       <div
                         key={asset}
-                        className={assetColors[asset]}
+                        className={ASSET_COLORS[asset]}
                         style={{ width: `${percentage}%` }}
-                        title={`${assetNames[asset]}: ${percentage}%`}
+                        title={`${ASSET_NAMES[asset]}: ${percentage}%`}
                       />
                     ))}
                   </div>
@@ -389,9 +372,9 @@ export default function PortfolioClient() {
                   {allocationData.map(({ asset, percentage, value }) => (
                     <div key={asset} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
                       <div className="flex items-center">
-                        <div className={`w-3 h-3 rounded-full ${assetColors[asset]} mr-3`} />
+                        <div className={`w-3 h-3 rounded-full ${ASSET_COLORS[asset]} mr-3`} />
                         <div>
-                          <p className="font-medium text-white">{assetNames[asset]}</p>
+                          <p className="font-medium text-white">{ASSET_NAMES[asset]}</p>
                           <p className="text-sm text-gray-300">{formatPercentage(percentage)}</p>
                         </div>
                       </div>
@@ -420,9 +403,14 @@ export default function PortfolioClient() {
                 </div>
                 <div className="text-right">
                   <p className="text-3xl font-bold">
-                    {walletBalance !== null ? formatCurrency(walletBalance) : formatCurrency(0)}
+                    {formatCurrency(calculateMockedWalletBalance(walletBalance !== null ? walletBalance : portfolio.totalValue, portfolio.strategy))}
                   </p>
-                  <p className="text-indigo-100 text-sm">Total Assets</p>
+                  <p className="text-indigo-100 text-sm flex items-center justify-end">
+                    <span className="mr-2">Total Assets</span>
+                    <span className="text-xs bg-green-400/30 text-green-100 px-2 py-1 rounded-full">
+                      +{mockedPerformance.performance24h.toFixed(1)}% today
+                    </span>
+                  </p>
                 </div>
               </div>
 
@@ -431,7 +419,7 @@ export default function PortfolioClient() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-xl font-semibold text-white">
-                      {strategyNames[portfolio.strategy]}
+                      {STRATEGY_NAMES[portfolio.strategy]}
                     </h3>
                     <p className="text-sm text-gray-300">
                       Last rebalanced {new Date(portfolio.lastRebalanced).toLocaleDateString()}
@@ -468,23 +456,36 @@ export default function PortfolioClient() {
 
               {/* Performance Metrics */}
               <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                <h3 className="text-xl font-semibold text-white mb-4">Performance</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold text-white">Performance</h3>
+                  <span className="text-xs text-gray-400 bg-white/10 px-2 py-1 rounded-full">
+                    Demo Data
+                  </span>
+                </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-green-400">+12.5%</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      +{mockedPerformance.performance7d.toFixed(1)}%
+                    </p>
                     <p className="text-sm text-gray-300">7 Days</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-green-400">+28.3%</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      +{mockedPerformance.performance30d.toFixed(1)}%
+                    </p>
                     <p className="text-sm text-gray-300">30 Days</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-green-400">+45.7%</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      +{mockedPerformance.performance90d.toFixed(1)}%
+                    </p>
                     <p className="text-sm text-gray-300">90 Days</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-400">0.85</p>
+                    <p className="text-2xl font-bold text-blue-400">
+                      {mockedPerformance.sharpeRatio.toFixed(2)}
+                    </p>
                     <p className="text-sm text-gray-300">Sharpe Ratio</p>
                   </div>
                 </div>
