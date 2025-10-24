@@ -17,20 +17,23 @@ export default function Navigation() {
     const { address, isConnected } = useAccount()
     const { disconnect } = useDisconnect()
     const { isAuthenticated } = useWalletAuth()
-    const buttonBaseStyles = "rounded-full hover:rounded-full";
 
     const handleSignOut = async () => {
         try {
+            // Disconnect wallet first
+            disconnect();
+            
             // Delete session
             await fetch('/api/auth/session', {
                 method: 'DELETE',
             });
             
-            // Disconnect wallet
-            disconnect();
+            // Small delay to ensure wallet disconnection is processed
+            await new Promise(resolve => setTimeout(resolve, 200));
             
-            // Redirect to home
+            // Redirect to home and force refresh
             router.push('/');
+            router.refresh();
         } catch (error) {
             console.error('Error signing out:', error);
         }
@@ -102,8 +105,8 @@ export default function Navigation() {
                             </button>
                             
                             {/* Wallet Connection Status */}
-                            {isAuthenticated && isConnected && address ? (
-                                <div className="flex items-center gap-3">
+                            {isConnected && address ? (
+                                <div className="flex items-center gap-3" key={address}>
                                     <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-gray-700/50">
                                         <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -115,18 +118,13 @@ export default function Navigation() {
                                     <button
                                         onClick={handleSignOut}
                                         className="rounded-full p-2 hover:bg-red-500/20 transition-colors"
-                                        aria-label="Sign Out"
+                                        aria-label="Disconnect Wallet"
+                                        title="Disconnect Wallet"
                                     >
                                         <LogOut className="w-5 h-5 text-gray-300 hover:text-red-400" />
                                     </button>
                                 </div>
-                            ) : (
-                                <Link href="/sign-in">
-                                    <button className={`${buttonBaseStyles} bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold px-6 py-3 transition-all duration-300 ease-in-out shadow hover:from-purple-700 hover:to-pink-700 hover:shadow-lg`}>
-                                        Connect Wallet
-                                    </button>
-                                </Link>
-                            )}
+                            ) : null}
                         </div>
                     </motion.div>
                 </div>

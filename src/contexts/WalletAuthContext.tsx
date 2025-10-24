@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 
 interface User {
@@ -25,18 +25,35 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
   const { disconnect } = useDisconnect();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Track if we've already fetched for this address to prevent duplicate calls
+  const fetchedAddressRef = useRef<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   // Fetch user data when wallet is connected
   useEffect(() => {
     async function fetchUser() {
+      // If wallet is disconnected, clear user
       if (!address || !isConnected) {
-        setUser(null);
+        if (user !== null) {
+          console.log('Wallet disconnected, clearing user state');
+          setUser(null);
+        }
         setIsLoading(false);
+        fetchedAddressRef.current = null;
+        return;
+      }
+
+      // Skip if we're already fetching or have already fetched for this address
+      if (isFetchingRef.current || fetchedAddressRef.current === address) {
         return;
       }
 
       try {
+        isFetchingRef.current = true;
         setIsLoading(true);
+        
+        console.log('Fetching user for address:', address);
         
         // Create or get user from database
         const createResponse = await fetch('/api/auth/user', {
@@ -50,6 +67,7 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
         if (createResponse.ok) {
           const data = await createResponse.json();
           setUser(data.user);
+          fetchedAddressRef.current = address; // Mark this address as fetched
           
           // Create session
           await fetch('/api/auth/session', {
@@ -59,12 +77,18 @@ export function WalletAuthProvider({ children }: { children: ReactNode }) {
             },
             body: JSON.stringify({ walletAddress: address }),
           });
+          
+          console.log('User session created successfully');
+        } else {
+          console.error('Failed to create/fetch user');
+          setUser(null);
         }
       } catch (error) {
         console.error('Error fetching user:', error);
         setUser(null);
       } finally {
         setIsLoading(false);
+        isFetchingRef.current = false;
       }
     }
 

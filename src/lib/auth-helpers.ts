@@ -10,10 +10,28 @@ export async function getCurrentUser(request: NextRequest) {
     const walletAddress = request.headers.get('x-wallet-address');
     
     if (!walletAddress) {
+      console.log('No x-wallet-address header found');
       return null;
     }
 
-    const user = await UserService.getUserByWalletAddress(walletAddress);
+    console.log('Looking for user with wallet address:', walletAddress);
+    let user = await UserService.getUserByWalletAddress(walletAddress);
+    
+    // If user doesn't exist, create them automatically
+    if (!user) {
+      console.log('User not found, creating new user with wallet:', walletAddress);
+      user = await UserService.createUser({
+        wallet_address: walletAddress,
+      });
+      
+      if (!user) {
+        console.error('Failed to create user');
+        return null;
+      }
+      
+      console.log('Created new user:', user.id);
+    }
+    
     return user;
   } catch (error) {
     console.error('Error getting current user:', error);

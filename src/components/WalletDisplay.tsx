@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import { 
   WalletIcon, 
   ClipboardDocumentIcon, 
@@ -15,46 +16,32 @@ interface WalletDisplayProps {
 }
 
 export default function WalletDisplay({ className = '' }: WalletDisplayProps) {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { address, isConnected } = useAccount();
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
-    fetchWalletAddress();
-  }, []);
-
-  const fetchWalletAddress = async () => {
-    try {
-      const response = await fetch('/api/wallet');
-      const data = await response.json();
-      
-      if (data.walletAddress) {
-        setWalletAddress(data.walletAddress);
-        // Generate QR code
-        const qrUrl = await QRCode.toDataURL(data.walletAddress, {
-          width: 200,
-          margin: 2,
-          color: {
-            dark: '#1f2937',
-            light: '#ffffff'
-          }
-        });
-        setQrCodeUrl(qrUrl);
-      }
-    } catch (error) {
-      console.error('Error fetching wallet address:', error);
-    } finally {
-      setLoading(false);
+    if (address) {
+      // Generate QR code when address is available
+      QRCode.toDataURL(address, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#1f2937',
+          light: '#ffffff'
+        }
+      }).then(setQrCodeUrl).catch(error => {
+        console.error('Error generating QR code:', error);
+      });
     }
-  };
+  }, [address]);
 
   const copyToClipboard = async () => {
-    if (!walletAddress) return;
+    if (!address) return;
     
     try {
-      await navigator.clipboard.writeText(walletAddress);
+      await navigator.clipboard.writeText(address);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -62,42 +49,21 @@ export default function WalletDisplay({ className = '' }: WalletDisplayProps) {
     }
   };
 
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  if (loading) {
-    return (
-      <div className={`bg-white rounded-lg shadow-sm p-6 ${className}`}>
-        <div className="animate-pulse">
-          <div className="flex items-center mb-4">
-            <div className="w-8 h-8 bg-gray-200 rounded-full mr-3"></div>
-            <div className="h-6 bg-gray-200 rounded w-32"></div>
-          </div>
-          <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!walletAddress) {
+  if (!isConnected || !address) {
     return (
       <div className={`bg-white rounded-lg shadow-sm p-6 ${className}`}>
         <div className="text-center">
           <WalletIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Wallet Not Found
+            Wallet Not Connected
           </h3>
           <p className="text-gray-600 mb-4">
-            Your custody wallet is being created. Please refresh the page in a moment.
+            Please connect your wallet to view your address.
           </p>
-          <button
-            onClick={fetchWalletAddress}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Refresh
-          </button>
         </div>
       </div>
     );
@@ -108,7 +74,7 @@ export default function WalletDisplay({ className = '' }: WalletDisplayProps) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <WalletIcon className="h-6 w-6 text-indigo-600 mr-3" />
-          <h3 className="text-lg font-semibold text-gray-900">Your Custody Wallet</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Your Wallet</h3>
         </div>
         <button
           onClick={() => setShowQR(!showQR)}
@@ -127,7 +93,7 @@ export default function WalletDisplay({ className = '' }: WalletDisplayProps) {
         <div className="flex items-center space-x-2">
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
             <span className="font-mono text-sm text-gray-900">
-              {formatAddress(walletAddress)}
+              {formatAddress(address)}
             </span>
           </div>
           <button
@@ -143,7 +109,7 @@ export default function WalletDisplay({ className = '' }: WalletDisplayProps) {
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-1">
-          Click to copy full address: {walletAddress}
+          Click to copy full address: {address}
         </p>
       </div>
 

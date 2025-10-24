@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import { 
   PlusIcon, 
   ChartBarIcon, 
@@ -35,15 +36,17 @@ interface Portfolio {
 }
 
 export default function DashboardClient() {
+  const { address, isConnected } = useAccount();
   const [activeTab, setActiveTab] = useState('overview');
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [hasWallet, setHasWallet] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (isConnected && address) {
+      fetchDashboardData();
+    }
+  }, [isConnected, address]);
 
   const fetchDashboardData = async (isRefresh = false) => {
     try {
@@ -53,13 +56,8 @@ export default function DashboardClient() {
         setLoading(true);
       }
       
-      // Fetch wallet status
-      const walletResponse = await fetch('/api/wallet');
-      const walletData = await walletResponse.json();
-      setHasWallet(walletData.hasWallet);
-
-      // Fetch portfolio if wallet exists
-      if (walletData.hasWallet) {
+      // Fetch portfolio if wallet is connected
+      if (isConnected && address) {
         const portfolioResponse = await fetch('/api/portfolio');
         const portfolioData = await portfolioResponse.json();
         
@@ -102,20 +100,18 @@ export default function DashboardClient() {
   return (
     <div className="min-h-screen pt-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Security & Wallet Status Header */}
+        {/* Portfolio Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl shadow-lg p-6 mb-6 text-white">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
+                <ChartBarIcon className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Secure Custody Wallet</h1>
+                <h1 className="text-xl font-bold">Portfolio Dashboard</h1>
                 <div className="flex items-center space-x-2 text-indigo-100">
-                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-sm">Protected & Insured</span>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-sm">Wallet Connected</span>
                 </div>
               </div>
             </div>
@@ -144,26 +140,28 @@ export default function DashboardClient() {
           </div>
         </div>
 
-        {!hasWallet ? (
-          // Wallet creation in progress
+        {!isConnected || !address ? (
+          // Wallet not connected (shouldn't happen due to middleware, but just in case)
           <div className="text-center">
             <div className="max-w-md mx-auto">
               <div className="bg-white rounded-lg shadow-sm p-8">
-                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
                 </div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                  Setting Up Your Wallet
+                  Wallet Connection Required
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  We&apos;re automatically creating your secure custody wallet. This will only take a moment...
+                  Please connect your wallet to access your portfolio.
                 </p>
-                <button
-                  onClick={() => fetchDashboardData()}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                <Link 
+                  href="/sign-in"
+                  className="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                 >
-                  Check Status
-                </button>
+                  Connect Wallet
+                </Link>
               </div>
             </div>
           </div>
