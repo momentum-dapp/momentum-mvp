@@ -45,6 +45,7 @@ export default function AIChat({ onPortfolioCreated }: AIChatProps) {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showStrategySelection, setShowStrategySelection] = useState(false);
+  const [existingPortfolio, setExistingPortfolio] = useState<Portfolio | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -54,6 +55,25 @@ export default function AIChat({ onPortfolioCreated }: AIChatProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Check for existing portfolio on mount
+  useEffect(() => {
+    const checkExistingPortfolio = async () => {
+      try {
+        const response = await fetch('/api/portfolio');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.portfolio) {
+            setExistingPortfolio(data.portfolio);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for existing portfolio:', error);
+      }
+    };
+
+    checkExistingPortfolio();
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -126,9 +146,13 @@ export default function AIChat({ onPortfolioCreated }: AIChatProps) {
     setIsLoading(true);
     
     try {
-      // Create portfolio with selected strategy
-      const response = await fetch('/api/portfolio', {
-        method: 'POST',
+      const isUpdate = !!existingPortfolio;
+      const endpoint = '/api/portfolio';
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      // Create or update portfolio with selected strategy
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -137,29 +161,32 @@ export default function AIChat({ onPortfolioCreated }: AIChatProps) {
 
       const data = await response.json();
       
-      if (data.success && data.portfolio) {
+      if ((data.success || data.portfolio) && data.portfolio) {
+        const actionWord = isUpdate ? 'updated' : 'created';
         const successMessage: ChatMessage = {
           id: Date.now().toString(),
           role: 'assistant',
-          content: `Excellent! I've created your ${strategy} risk portfolio. Your portfolio is now set up with the following allocation:\n\n• WBTC: ${data.portfolio.allocations.WBTC}%\n• Major Cryptocurrencies: ${data.portfolio.allocations.BIG_CAPS}%\n• Emerging Cryptocurrencies: ${data.portfolio.allocations.MID_LOWER_CAPS}%\n• Stablecoins: ${data.portfolio.allocations.STABLECOINS}%\n\nYou can now start depositing funds and I'll automatically rebalance your portfolio based on market conditions. Would you like me to explain how the automatic rebalancing works?`,
+          content: `Excellent! I've ${actionWord} your ${strategy} risk portfolio. Your portfolio is now set up with the following allocation:\n\n• WBTC: ${data.portfolio.allocations.WBTC}%\n• Major Cryptocurrencies: ${data.portfolio.allocations.BIG_CAPS}%\n• Emerging Cryptocurrencies: ${data.portfolio.allocations.MID_LOWER_CAPS}%\n• Stablecoins: ${data.portfolio.allocations.STABLECOINS}%${isUpdate ? '\n\nYour portfolio strategy has been updated successfully!' : '\n\nYou can now start depositing funds and I\'ll automatically rebalance your portfolio based on market conditions.'} Would you like me to explain how the automatic rebalancing works?`,
           timestamp: new Date(),
         };
 
         setMessages(prev => [...prev, successMessage]);
         setShowStrategySelection(false);
+        setExistingPortfolio(data.portfolio);
         
         if (onPortfolioCreated) {
           onPortfolioCreated(data.portfolio);
         }
       } else {
-        throw new Error('Failed to create portfolio');
+        throw new Error(data.error || `Failed to ${isUpdate ? 'update' : 'create'} portfolio`);
       }
     } catch (error) {
-      console.error('Error creating portfolio:', error);
+      console.error('Error with portfolio:', error);
+      const isUpdate = !!existingPortfolio;
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: "I encountered an error while creating your portfolio. Please try again or contact support if the issue persists.",
+        content: `I encountered an error while ${isUpdate ? 'updating' : 'creating'} your portfolio. ${error instanceof Error ? error.message : 'Please try again or contact support if the issue persists.'}`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -251,32 +278,44 @@ export default function AIChat({ onPortfolioCreated }: AIChatProps) {
           <div className="space-y-3">
             <div className="text-center">
               <p className="text-sm font-medium text-gray-900 mb-3">
-                Choose your investment strategy:
+                {existingPortfolio 
+                  ? `Update your investment strategy (Current: ${existingPortfolio.strategy} risk):`
+                  : 'Choose your investment strategy:'}
               </p>
             </div>
             
-            {strategies.map((strategy) => (
-              <button
-                key={strategy.id}
-                onClick={() => handleStrategySelection(strategy.id as 'low' | 'medium' | 'high')}
-                disabled={isLoading}
-                className={`w-full p-4 border-2 rounded-lg text-left transition-colors disabled:opacity-50 ${strategy.color}`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className={`font-medium ${strategy.textColor}`}>
-                      {strategy.name}
-                    </h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {strategy.description}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {strategy.allocation}
-                    </p>
+            {strategies.map((strategy) => {
+              const isCurrentStrategy = existingPortfolio?.strategy === strategy.id;
+              return (
+                <button
+                  key={strategy.id}
+                  onClick={() => handleStrategySelection(strategy.id as 'low' | 'medium' | 'high')}
+                  disabled={isLoading}
+                  className={`w-full p-4 border-2 rounded-lg text-left transition-colors disabled:opacity-50 ${strategy.color} ${isCurrentStrategy ? 'ring-2 ring-indigo-500' : ''}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className={`font-medium ${strategy.textColor}`}>
+                          {strategy.name}
+                        </h4>
+                        {isCurrentStrategy && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {strategy.description}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {strategy.allocation}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
 
