@@ -91,15 +91,16 @@ export default function GenerateClient() {
               </div>
             </div>
           </div>
-        ) : portfolio ? (
-          // User already has portfolio - redirect to portfolio page
-          <div className="text-center">
-            <div className="max-w-md mx-auto">
-              <div className="bg-white rounded-lg shadow-sm p-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <SparklesIcon className="w-8 h-8 text-green-600" />
+        ) : (
+          // Show chat interface
+          <div className="space-y-6">
+            {portfolio && (
+              // User already has portfolio - show info banner
+              <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <SparklesIcon className="w-6 h-6 text-green-600" />
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">
                   Portfolio Already Exists
                 </h2>
                 <p className="text-gray-600 mb-6">
@@ -112,15 +113,15 @@ export default function GenerateClient() {
                   View Portfolio
                 </Link>
               </div>
-            </div>
+            )}
+            
+            {/* Always show AI chat section */}
+            <AIChat 
+              onPortfolioCreated={(newPortfolio) => {
+                setPortfolio(newPortfolio);
+              }}
+            />
           </div>
-        ) : (
-          // Show chat interface directly
-          <AIChat 
-            onPortfolioCreated={(newPortfolio) => {
-              setPortfolio(newPortfolio);
-            }}
-          />
         )}
       </div>
     </div>
